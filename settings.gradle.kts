@@ -20,8 +20,8 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "pos-system"
-include(":counter")
-include(":admin")
+include(":counter_android")
+include(":admin_android")
 include(":core")
 include(":backend")
 include(":admin_desktop:backend")

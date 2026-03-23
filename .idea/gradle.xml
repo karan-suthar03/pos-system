@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
@@ -9,12 +10,12 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/admin" />
+            <option value="$PROJECT_DIR$/admin_android" />
             <option value="$PROJECT_DIR$/admin_desktop" />
             <option value="$PROJECT_DIR$/admin_desktop/backend" />
             <option value="$PROJECT_DIR$/backend" />
             <option value="$PROJECT_DIR$/core" />
-            <option value="$PROJECT_DIR$/counter" />
+            <option value="$PROJECT_DIR$/counter_android" />
           </set>
         </option>
       </GradleProjectSettings>
