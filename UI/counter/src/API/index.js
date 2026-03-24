@@ -6,6 +6,47 @@ window.__nativeResolve = function (id, response) {
   }
 };
 
+function uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export async function handleMessage(messagePayload) {
+  if (!window.NativeApi?.handleMessage) {
+    throw new Error('Native bridge is unavailable');
+  }
+
+  const id = crypto?.randomUUID ? crypto.randomUUID() : uuid();
+  const message = {
+    requestId: id,
+  };
+
+  if (messagePayload !== undefined) {
+    let sanitizedPayload = messagePayload;
+
+    if (
+      sanitizedPayload &&
+      typeof sanitizedPayload === 'object' &&
+      !Array.isArray(sanitizedPayload)
+    ) {
+      sanitizedPayload = { ...sanitizedPayload };
+      delete sanitizedPayload.requestId;
+    }
+
+    message.message = sanitizedPayload;
+  }
+
+  const result = await new Promise((resolve) => {
+    window.__nativePromises[id] = resolve;
+    window.NativeApi.handleMessage(message);
+  });
+
+  return result;
+}
+
 const bluetoothStateListeners = new Set();
 const printerStateListeners = new Set();
 

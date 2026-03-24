@@ -1,83 +1,19 @@
-// import {app, BrowserWindow} from "electron";
-
- import { spawn } from "child_process";
-// import path from "path";
-// import { fileURLToPath } from "url";
-
-// // Fix __dirname in ESM
- const __filename = fileURLToPath(import.meta.url);
- const __dirname = path.dirname(__filename);
-
-// // Java path (JBR)
- const javaPath = "C:\\Program Files\\Android\\Android Studio\\jbr\\bin\\java.exe";
-
-// // Jar path
- const jarPath = path.resolve(__dirname, "core.jar");
-
-// // Start Java process
- const java = spawn(javaPath, ["-jar", jarPath]);
-
-// // Listen output
-
-let buffer = "";
-
-java.stdout.on("data", (chunk) => {
-  buffer += chunk.toString();
-
-  const lines = buffer.split(/\r?\n/);
-  buffer = lines.pop(); // keep incomplete part
-
-   for (const line of lines) {
-    if (!line.trim()) continue;
-
-    console.log("Message length:", line.length);
-
-    try {
-      const parsed = JSON.parse(line);
-    } catch (e) {
-      console.error("Invalid JSON:", line);
-    }
-  }
-});
-
-
-//setInterval(()=>{
-//
-//java.stdin.write("karan\n")
-//},1000)
-
-
-
-java.stderr.on("data", (data) => {
-    console.error("JAVA ERROR:", data.toString());
-});
-
-// function createWindow() {
-//   const win = new BrowserWindow({
-//     width: 1000,
-//     height: 800,
-//   });
-
-//   // Load your local server
-//   win.loadURL('http://localhost:3000/');
-//   win.webContents.openDevTools();
-// }
-
-// app.whenReady().then(createWindow);
-
-
 // main.js
 import { app, BrowserWindow, ipcMain } from 'electron';
+import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createLauncher } from './launcher/index.js';
 import { createCounter } from './counter/index.js';
 
-//const __filename = fileURLToPath(import.meta.url);
-//const __dirname = path.dirname(__filename);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let adminWin = null;
 let counterWin = null;
+let javaProcess = null;
+let javaStdoutBuffer = '';
+const pendingNativeRequests = new Map();
 
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -85,7 +21,88 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', () => createLauncher());
-  app.whenReady().then(createLauncher);
+  app.whenReady().then(() => {
+    startJavaBridge();
+    createLauncher();
+  });
+}
+
+function startJavaBridge() {
+  if (javaProcess && !javaProcess.killed) {
+    return;
+  }
+
+  const javaPath = "C:\\Program Files\\Android\\Android Studio\\jbr\\bin\\java.exe";
+  const jarPath = path.resolve(__dirname, 'core.jar');
+
+  javaProcess = spawn(javaPath, ['-jar', jarPath], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+
+  javaProcess.stdout.on('data', (chunk) => {
+    javaStdoutBuffer += chunk.toString();
+    const lines = javaStdoutBuffer.split(/\r?\n/);
+    javaStdoutBuffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      handleJavaResponseLine(line);
+    }
+  });
+
+  javaProcess.stderr.on('data', (data) => {
+    console.error('JAVA ERROR:', data.toString());
+  });
+
+  javaProcess.on('exit', (code, signal) => {
+    console.error('Java bridge exited', { code, signal });
+    javaProcess = null;
+    failAllPendingRequests('JAVA_BRIDGE_EXITED', `Java bridge exited (code=${code}, signal=${signal})`);
+  });
+
+  javaProcess.on('error', (error) => {
+    console.error('Failed to start Java bridge:', error);
+    javaProcess = null;
+    failAllPendingRequests('JAVA_BRIDGE_START_FAILED', error.message || 'Failed to start Java bridge');
+  });
+}
+
+function failAllPendingRequests(code, message) {
+  const requests = Array.from(pendingNativeRequests.values());
+  pendingNativeRequests.clear();
+
+  for (const pending of requests) {
+    resolveNative(pending.webContents, pending.requestId, {
+      success: false,
+      error: message,
+      code,
+    });
+  }
+}
+
+function handleJavaResponseLine(line) {
+  let response;
+  try {
+    response = JSON.parse(line);
+  } catch (_error) {
+    console.error('Invalid JSON line from Java:', line);
+    return;
+  }
+
+  const requestId = response?.requestId;
+  if (!requestId) {
+    console.error('Java response missing requestId:', response);
+    return;
+  }
+
+  const pending = pendingNativeRequests.get(requestId);
+  if (!pending) {
+    console.error('No pending request for Java response requestId:', requestId);
+    return;
+  }
+
+  pendingNativeRequests.delete(requestId);
+  resolveNative(pending.webContents, requestId, response);
 }
 
 function openAdmin() {
@@ -123,4 +140,78 @@ ipcMain.handle('launch-app', (event, mode) => {
 
   if (mode === 'admin') openAdmin();
   if (mode === 'counter') openCounter();
+});
+
+function resolveNative(webContents, requestId, responseObject) {
+  const responseString =
+    typeof responseObject === 'string' ? responseObject : JSON.stringify(responseObject);
+
+  const js = `window.__nativeResolve(${JSON.stringify(requestId)}, ${JSON.stringify(responseString)})`;
+  webContents.executeJavaScript(js).catch((error) => {
+    console.error('Failed to execute __nativeResolve in renderer:', error);
+  });
+}
+
+ipcMain.on('native:handle-message', async (event, message) => {
+  const requestId = message?.requestId || null;
+  const rawMessage = message?.message;
+
+  if (!requestId) {
+    resolveNative(event.sender, requestId, {
+      success: false,
+      error: 'Missing requestId',
+    });
+    return;
+  }
+
+  let messageBody;
+  try {
+    messageBody = typeof rawMessage === 'string' ? JSON.parse(rawMessage) : rawMessage;
+  } catch (_error) {
+    resolveNative(event.sender, requestId, {
+      requestId,
+      success: false,
+      error: 'Invalid message JSON',
+    });
+    return;
+  }
+
+  startJavaBridge();
+
+  if (!javaProcess || javaProcess.killed || !javaProcess.stdin.writable) {
+    resolveNative(event.sender, requestId, {
+      requestId,
+      success: false,
+      error: 'Java bridge is not available',
+    });
+    return;
+  }
+
+  const requestObject = {
+    requestId,
+    message: messageBody,
+  };
+
+  pendingNativeRequests.set(requestId, {
+    requestId,
+    webContents: event.sender,
+  });
+
+  try {
+    // One object, one line JSON protocol to Java.
+    javaProcess.stdin.write(`${JSON.stringify(requestObject)}\n`);
+  } catch (error) {
+    pendingNativeRequests.delete(requestId);
+    resolveNative(event.sender, requestId, {
+      requestId,
+      success: false,
+      error: error.message || 'Failed to write request to Java bridge',
+    });
+  }
+});
+
+app.on('before-quit', () => {
+  if (javaProcess && !javaProcess.killed) {
+    javaProcess.kill();
+  }
 });
