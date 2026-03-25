@@ -2,6 +2,7 @@ import { DISHES_BY_CATEGORY } from "../data/menuItems";
 import { handleMessage } from ".";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+let typePrefix = "dish.";
 
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -11,7 +12,7 @@ async function getDishes() {
   if (window.NativeApi?.handleMessage) {
     try {
       const result = await handleMessage({
-        type: "GET_DISHES",
+        type: `${typePrefix}getDishes`,
         params: null,
       });
 
@@ -22,9 +23,6 @@ async function getDishes() {
 
     }
   }
-
-  await sleep(120);
-  return clone(DISHES_BY_CATEGORY);
 }
 
 export { getDishes };

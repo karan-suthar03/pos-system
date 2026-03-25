@@ -6,8 +6,34 @@ import com.google.gson.JsonObject;
 import solutions.triniti.core.bridge.BridgeMessage;
 import solutions.triniti.core.bridge.BridgeRequest;
 import solutions.triniti.core.bridge.BridgeResponse;
+import solutions.triniti.core.db.Database;
+import solutions.triniti.core.handler.DishRequestHandler;
+import solutions.triniti.core.handler.PrintRequestHandler;
+import solutions.triniti.core.handler.RequestHandler;
+
+import java.util.Arrays;
+import java.util.List;
 
 public class Core {
+
+    private final Database database;
+    private final List<RequestHandler> handlers;
+
+    public Core() {
+        this(null);
+    }
+
+    public Core(Database database) {
+        this.database = database;
+        this.handlers = Arrays.asList(
+            new DishRequestHandler(database),
+            new PrintRequestHandler()
+        );
+    }
+
+    public Database getDatabase() {
+        return database;
+    }
 
     public BridgeResponse handleMessage(BridgeRequest request) {
         if (request == null) {
@@ -27,10 +53,18 @@ public class Core {
             return BridgeResponse.success(requestId, data);
         }
 
-        switch (type) {
-            default:
-                data.addProperty("message", "Unhandled type: " + type);
-                return BridgeResponse.success(requestId, data);
+        for (RequestHandler handler : handlers) {
+            if (handler.supports(type)) {
+                try {
+                    return handler.handle(requestId, message);
+                } catch (Exception e) {
+                    String error = e.getMessage() == null ? "Unknown error" : e.getMessage();
+                    return BridgeResponse.error(requestId, error);
+                }
+            }
         }
+
+        data.addProperty("message", "Unhandled type: " + type);
+        return BridgeResponse.success(requestId, data);
     }
 }

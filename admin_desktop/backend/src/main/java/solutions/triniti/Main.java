@@ -5,13 +5,16 @@ import com.google.gson.Gson;
 import solutions.triniti.core.Core;
 import solutions.triniti.core.bridge.BridgeRequest;
 import solutions.triniti.core.bridge.BridgeResponse;
+import solutions.triniti.db.SqliteDatabase;
 
 public class Main {
 
     private static final Gson GSON = new Gson();
-    private static final Core CORE = new Core();
+    private static Core CORE;
 
     public static void main(String[] args) throws Exception {
+        String dbPath = args.length > 0 ? args[0] : "pos.db";
+        CORE = new Core(new SqliteDatabase(dbPath));
 
         System.out.println("JAVA READY");
         System.out.flush();
