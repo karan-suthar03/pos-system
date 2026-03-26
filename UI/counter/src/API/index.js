@@ -41,7 +41,7 @@ export async function handleMessage(messagePayload) {
 
   const result = await new Promise((resolve) => {
     window.__nativePromises[id] = resolve;
-    window.NativeApi.handleMessage(message);
+    window.NativeApi.handleMessage(JSON.stringify(message));
   });
 
   return result;

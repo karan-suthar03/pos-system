@@ -153,8 +153,22 @@ function resolveNative(webContents, requestId, responseObject) {
 }
 
 ipcMain.on('native:handle-message', async (event, message) => {
-  const requestId = message?.requestId || null;
-  const rawMessage = message?.message;
+  let requestEnvelope = message;
+
+  if (typeof requestEnvelope === 'string') {
+    try {
+      requestEnvelope = JSON.parse(requestEnvelope);
+    } catch (_error) {
+      resolveNative(event.sender, null, {
+        success: false,
+        error: 'Invalid request envelope JSON',
+      });
+      return;
+    }
+  }
+
+  const requestId = requestEnvelope?.requestId || null;
+  const rawMessage = requestEnvelope?.message;
 
   if (!requestId) {
     resolveNative(event.sender, requestId, {
