@@ -2,12 +2,16 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+val adminApplicationId = providers.gradleProperty("adminApplicationId")
+    .orElse("solutions.triniti.admin")
+    .get()
+
 android {
     namespace = "solutions.triniti.admin"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "solutions.triniti.admin"
+        applicationId = adminApplicationId
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -33,7 +37,7 @@ android {
 
 dependencies {
 
-
+    implementation(project(":core"))
 
     implementation(libs.appcompat)
     implementation(libs.material)
