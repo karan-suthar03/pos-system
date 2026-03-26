@@ -4,6 +4,7 @@ import {
   ChevronRight,
   Loader2,
   Plus,
+  Save,
   Search,
   ShoppingBag,
   UtensilsCrossed,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { getDishes } from '../API/dishes';
+import { createOrder } from '../API/orders';
 
 import hotBeverage from '../assets/hotBeverage.png';
 import coldCoffee from '../assets/coldCoffee.png';
@@ -44,20 +46,25 @@ const CATEGORY_IMAGES = {
   Misc: misc,
 };
 
-const ORDER_ITEMS = [
-  { id: 1, name: 'Classic Cold Coffee', quantity: 2, price: 9000 },
-  { id: 2, name: 'Peri Peri Fries', quantity: 1, price: 8000 },
-];
-
 function getTotal(items) {
   return items.reduce((sum, item) => sum + item.quantity * item.price, 0);
 }
 
-function CreateOrderPopup({ isOpen, onClose }) {
+function CreateOrderPopup({
+  isOpen,
+  onClose,
+  onConfirm,
+  initialOrder = null,
+  onSaveDraft = null,
+  editingDraftId = null,
+}) {
   const [allDishes, setAllDishes] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState(null);
+  const [order, setOrder] = useState(initialOrder || { items: [], tag: '' });
 
   useEffect(() => {
     if (!isOpen) {
@@ -68,10 +75,9 @@ function CreateOrderPopup({ isOpen, onClose }) {
       try {
         setIsLoading(true);
         const dishes = await getDishes();
-        console.log(dishes)
-        setAllDishes(dishes || {});
+        setAllDishes(dishes);
       } catch (_error) {
-        setAllDishes({});
+        console.error('Failed to fetch dishes:', _error);
       } finally {
         setIsLoading(false);
       }
@@ -82,8 +88,19 @@ function CreateOrderPopup({ isOpen, onClose }) {
     if (!isOpen) {
       setSearchQuery('');
       setActiveCategory(null);
+      setOrder({ items: [], tag: '' });
+      setIsSubmitting(false);
+      setIsSavingDraft(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setOrder(initialOrder || { items: [], tag: '' });
+  }, [isOpen, initialOrder]);
 
   const categories = allDishes ? Object.keys(allDishes) : [];
   const isGridView = !activeCategory && !searchQuery.trim();
@@ -121,6 +138,68 @@ function CreateOrderPopup({ isOpen, onClose }) {
   function onBackToCategories() {
     setActiveCategory(null);
     setSearchQuery('');
+  }
+
+  function onSelectMenuItem(item) {
+    setOrder((current) => {
+      const existing = current.items.find((entry) => entry.id === item.id);
+      if (!existing) {
+        return {
+          ...current,
+          items: [...current.items, { ...item, quantity: 1 }],
+        };
+      }
+
+      return {
+        ...current,
+        items: current.items.map((entry) =>
+          entry.id === item.id ? { ...entry, quantity: entry.quantity + 1 } : entry,
+        ),
+      };
+    });
+  }
+
+  function updateQuantity(itemId, nextQuantity) {
+    if (nextQuantity <= 0) {
+      setOrder((current) => ({
+        ...current,
+        items: current.items.filter((entry) => entry.id !== itemId),
+      }));
+      return;
+    }
+
+    setOrder((current) => ({
+      ...current,
+      items: current.items.map((entry) =>
+        entry.id === itemId ? { ...entry, quantity: nextQuantity } : entry,
+      ),
+    }));
+  }
+
+  async function handlePlaceOrder() {
+    if (order.items.length === 0 || isSubmitting) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const created = await createOrder(order);
+      onConfirm?.(created);
+    } catch (_error) {
+      setIsSubmitting(false);
+    }
+  }
+
+  function handleSaveDraft() {
+    if (order.items.length === 0 || isSavingDraft || !onSaveDraft) {
+      return;
+    }
+
+    setIsSavingDraft(true);
+    onSaveDraft(order, editingDraftId);
+
+    setIsSavingDraft(false);
+    onClose?.();
   }
 
   if (!isOpen) {
@@ -239,6 +318,12 @@ function CreateOrderPopup({ isOpen, onClose }) {
                             <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
                               ₹{(Number(item.price || 0) / 100).toFixed(2)}
                             </span>
+                            <button
+                              onClick={() => onSelectMenuItem(item)}
+                              className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors cursor-pointer"
+                            >
+                              <Plus size={16} />
+                            </button>
                           </div>
                         </div>
                       ))
@@ -267,14 +352,15 @@ function CreateOrderPopup({ isOpen, onClose }) {
           <div className="px-6 py-4">
             <input
               type="text"
-              value="Table 7"
-              readOnly
+              value={order.tag}
+              onChange={(event) => setOrder((current) => ({ ...current, tag: event.target.value }))}
+              placeholder="Table / Customer Name (optional)"
               className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base font-semibold text-gray-800 outline-none"
             />
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-            {ORDER_ITEMS.length === 0 ? (
+            {order.items.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-3 opacity-60">
                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                   <Calculator size={28} />
@@ -283,22 +369,35 @@ function CreateOrderPopup({ isOpen, onClose }) {
               </div>
             ) : (
               <div className="space-y-2">
-                {ORDER_ITEMS.map((item) => (
+                {order.items.map((item) => (
                   <div key={item.id} className="rounded-xl border border-gray-200 bg-white px-3 py-2.5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-gray-800">{item.name}</p>
                         <p className="text-xs text-gray-400">₹{(item.price / 100).toFixed(2)} / unit</p>
                       </div>
-                      <button className="text-gray-300 hover:text-red-400 transition-colors cursor-pointer">
+                      <button
+                        onClick={() => updateQuantity(item.id, 0)}
+                        className="text-gray-300 hover:text-red-400 transition-colors cursor-pointer"
+                      >
                         <X size={14} />
                       </button>
                     </div>
                     <div className="mt-2 flex items-center justify-between">
                       <div className="inline-flex items-center rounded-lg bg-gray-100 border border-gray-200">
-                        <button className="w-7 h-7 text-sm text-gray-600 cursor-pointer">-</button>
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          className="w-7 h-7 text-sm text-gray-600 cursor-pointer"
+                        >
+                          -
+                        </button>
                         <span className="w-7 text-center text-sm font-bold text-gray-700">{item.quantity}</span>
-                        <button className="w-7 h-7 text-sm text-gray-600 cursor-pointer">+</button>
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          className="w-7 h-7 text-sm text-gray-600 cursor-pointer"
+                        >
+                          +
+                        </button>
                       </div>
                       <span className="text-sm font-bold text-gray-800">
                         ₹{((item.quantity * item.price) / 100).toFixed(2)}
@@ -314,19 +413,45 @@ function CreateOrderPopup({ isOpen, onClose }) {
             <div className="flex justify-between items-end mb-4">
               <span className="text-gray-900 font-bold text-lg">Total</span>
               <span className="text-3xl font-black text-blue-600 tracking-tight">
-                ₹{(getTotal(ORDER_ITEMS) / 100).toFixed(2)}
+                ₹{(getTotal(order.items) / 100).toFixed(2)}
               </span>
             </div>
 
             <div className="space-y-2">
-              <button className="w-full py-3 px-6 rounded-xl flex items-center justify-center gap-2 font-bold text-base bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 hover:border-gray-400 transition-all cursor-pointer">
-                <Plus size={18} />
-                <span>Save as Draft</span>
+              <button
+                onClick={handleSaveDraft}
+                disabled={order.items.length === 0 || isSavingDraft || !onSaveDraft}
+                className="w-full py-3 px-6 rounded-xl flex items-center justify-center gap-2 font-bold text-base transition-all border border-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200 hover:border-gray-400 cursor-pointer"
+              >
+                {isSavingDraft ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    <span>{editingDraftId ? 'Update Draft' : 'Save as Draft'}</span>
+                  </>
+                )}
               </button>
 
-              <button className="w-full py-3.5 px-6 rounded-xl flex items-center justify-between group font-bold text-base shadow-lg bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-200 hover:-translate-y-0.5 transition-all cursor-pointer">
-                <span>Place Order</span>
-                <ChevronRight size={20} className="transition-transform duration-200 group-hover:translate-x-1" />
+              <button
+                onClick={handlePlaceOrder}
+                disabled={order.items.length === 0 || isSubmitting}
+                className="w-full py-3.5 px-6 rounded-xl flex items-center justify-between group font-bold text-base shadow-lg bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-200 hover:-translate-y-0.5 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              >
+                {isSubmitting ? (
+                  <div className="w-full flex items-center justify-center gap-2">
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Placing...</span>
+                  </div>
+                ) : (
+                  <>
+                    <span>Place Order</span>
+                    <ChevronRight size={20} className="transition-transform duration-200 group-hover:translate-x-1" />
+                  </>
+                )}
               </button>
             </div>
           </div>

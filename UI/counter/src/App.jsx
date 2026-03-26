@@ -1,83 +1,143 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CounterHeader from './components/CounterHeader';
 import StatsBar from './components/StatsBar';
 import OrdersSidebar from './components/OrdersSidebar';
 import OrderDetailsPanel from './components/OrderDetailsPanel';
 import CreateOrderPopup from './components/CreateOrderPopup';
-
-const ORDERS = [
-  {
-    id: 104,
-    tag: 'Table 4',
-    status: 'ACTIVE',
-    minutes: 17,
-    paymentDone: false,
-    items: [
-      { id: 1, name: 'Classic Cold Coffee', quantity: 2, price: 9000, status: 'PENDING' },
-      { id: 2, name: 'Peri Peri Fries', quantity: 1, price: 8000, status: 'SERVED' },
-    ],
-  },
-  {
-    id: 103,
-    tag: 'Takeaway',
-    status: 'ACTIVE',
-    minutes: 9,
-    paymentDone: false,
-    items: [
-      { id: 3, name: 'Margherita', quantity: 1, price: 14000, status: 'PENDING' },
-    ],
-  },
-  {
-    id: 102,
-    tag: 'Table 2',
-    status: 'CLOSED',
-    minutes: 0,
-    paymentDone: true,
-    items: [
-      { id: 4, name: 'Masala Chai', quantity: 2, price: 3500, status: 'SERVED' },
-      { id: 5, name: 'Veg Grilled Sandwich', quantity: 1, price: 8500, status: 'SERVED' },
-    ],
-  },
-];
-
-const SELECTED_ORDER_ID = 104;
+import DraftsModal from './components/DraftsModal';
+import { getOrders } from './API/orders';
+import { useDrafts } from './hooks/useDrafts';
 
 function getOrderTotal(order) {
   return order.items.reduce((sum, item) => sum + item.quantity * item.price, 0);
 }
 
-function getStats() {
-  const active = ORDERS.filter((order) => order.status !== 'CLOSED').length;
-  const closed = ORDERS.filter((order) => order.status === 'CLOSED').length;
-  const revenue = ORDERS
-    .filter((order) => order.paymentDone)
-    .reduce((sum, order) => sum + getOrderTotal(order), 0);
-  return { active, closed, revenue };
-}
-
-
 function App() {
   const [showCreateOrderPopup, setShowCreateOrderPopup] = useState(false);
-  const stats = getStats();
-  const selectedOrder = ORDERS.find((order) => order.id === SELECTED_ORDER_ID) || ORDERS[0];
+  const [showDraftsModal, setShowDraftsModal] = useState(false);
+  const [orders, setOrders] = useState([]);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [editingDraftId, setEditingDraftId] = useState(null);
+  const [draftToResume, setDraftToResume] = useState(null);
+  const { drafts, addDraft, updateDraft, deleteDraft, getDraft } = useDrafts();
+
+  async function fetchOrders() {
+    const fetched = await getOrders();
+    setOrders(fetched);
+    setSelectedOrderId((currentSelectedId) => {
+      if (currentSelectedId && fetched.some((order) => order.id === currentSelectedId)) {
+        return currentSelectedId;
+      }
+      return fetched[0]?.id ?? null;
+    });
+  }
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  useEffect(() => {
+    if (showDraftsModal && drafts.length === 0) {
+      setShowDraftsModal(false);
+    }
+  }, [showDraftsModal, drafts.length]);
+
+  const stats = useMemo(() => {
+    const active = orders.filter((order) => order.status !== 'CLOSED').length;
+    const closed = orders.filter((order) => order.status === 'CLOSED').length;
+    const revenue = orders
+      .filter((order) => order.paymentDone)
+      .reduce((sum, order) => sum + getOrderTotal(order), 0);
+    const draftCount = drafts.length;
+    return { active, closed, revenue, draftCount };
+  }, [orders, drafts]);
+
+  const selectedOrder = orders.find((order) => order.id === selectedOrderId) || orders[0] || null;
+
+  function handleOrderCreated(newOrder) {
+    setShowCreateOrderPopup(false);
+    setEditingDraftId(null);
+    setDraftToResume(null);
+
+    if (editingDraftId) {
+      deleteDraft(editingDraftId);
+    }
+
+    if (!newOrder) {
+      fetchOrders();
+      return;
+    }
+
+    setOrders((prev) => [newOrder, ...prev]);
+    setSelectedOrderId(newOrder.id);
+  }
+
+  function handleSaveDraft(order, draftId = null) {
+    if (draftId) {
+      updateDraft(draftId, order);
+      return;
+    }
+
+    addDraft(order);
+  }
+
+  function handleResumeDraft(draftId) {
+    const draft = getDraft(draftId);
+    if (!draft) {
+      return;
+    }
+
+    setDraftToResume(draft);
+    setEditingDraftId(draftId);
+    setShowDraftsModal(false);
+    setShowCreateOrderPopup(true);
+  }
+
+  function handleCloseCreatePopup() {
+    setShowCreateOrderPopup(false);
+    setEditingDraftId(null);
+    setDraftToResume(null);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/50 flex flex-col font-sans text-slate-900">
       <CounterHeader />
-      <StatsBar stats={stats} onCreateOrder={() => setShowCreateOrderPopup(true)} />
+      <StatsBar
+        stats={stats}
+        onCreateOrder={() => {
+          setEditingDraftId(null);
+          setDraftToResume(null);
+          setShowCreateOrderPopup(true);
+        }}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex flex-col lg:flex-row w-full flex-1 gap-6 h-[calc(100vh-180px)]">
         <OrdersSidebar
-          orders={ORDERS}
-          selectedOrderId={selectedOrder.id}
+          orders={orders}
+          selectedOrderId={selectedOrder?.id}
+          onSelectOrder={setSelectedOrderId}
           getOrderTotal={getOrderTotal}
+          draftCount={drafts.length}
+          onViewDrafts={() => setShowDraftsModal(true)}
         />
         <OrderDetailsPanel order={selectedOrder} getOrderTotal={getOrderTotal} />
       </main>
 
       <CreateOrderPopup
         isOpen={showCreateOrderPopup}
-        onClose={() => setShowCreateOrderPopup(false)}
+        onClose={handleCloseCreatePopup}
+        onConfirm={handleOrderCreated}
+        initialOrder={draftToResume}
+        editingDraftId={editingDraftId}
+        onSaveDraft={handleSaveDraft}
+      />
+
+      <DraftsModal
+        isOpen={showDraftsModal}
+        drafts={drafts}
+        onClose={() => setShowDraftsModal(false)}
+        onResumeDraft={handleResumeDraft}
+        onDeleteDraft={deleteDraft}
       />
     </div>
   );

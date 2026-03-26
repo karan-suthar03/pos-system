@@ -4,6 +4,7 @@ import {
 	Clock,
 	CreditCard,
 	Hourglass,
+	FileText,
 	Menu,
 	ReceiptIndianRupeeIcon,
 	Search,
@@ -11,6 +12,11 @@ import {
 } from 'lucide-react';
 
 function OrderListCard({ order, isSelected, getOrderTotal }) {
+	const orderAgeMinutes = Math.max(
+		0,
+		Math.floor((Date.now() - new Date(order.createdAt || Date.now()).getTime()) / 60000),
+	);
+	const orderLabel = order.tag || order.displayId || order.id;
 	const itemCount = order.items.reduce((acc, item) => acc + item.quantity, 0);
 	const pendingItems = order.items.filter((item) => item.status !== 'SERVED').length;
 	const total = getOrderTotal(order);
@@ -25,13 +31,13 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 		if (order.status === 'CLOSED') {
 			cardClasses = 'bg-[#F3F4F6] border-green-700 shadow-lg';
 			textSubColor = 'text-gray-500';
-		} else if (order.minutes >= 15) {
+		} else if (orderAgeMinutes >= 15) {
 			cardClasses = 'bg-red-600 border-red-700 shadow-md shadow-red-200';
 			textMainColor = 'text-white';
 			textSubColor = 'text-red-100';
 			badgeClass = 'bg-white/20 text-white';
 			TimerIcon = AlertCircle;
-		} else if (order.minutes >= 10) {
+		} else if (orderAgeMinutes >= 10) {
 			cardClasses = 'bg-orange-500 border-orange-600 shadow-md shadow-orange-200';
 			textMainColor = 'text-white';
 			textSubColor = 'text-orange-50';
@@ -44,12 +50,12 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 			badgeClass = 'bg-white/20 text-white';
 		}
 	} else if (order.status !== 'CLOSED') {
-		if (order.minutes >= 15) {
+		if (orderAgeMinutes >= 15) {
 			cardClasses = 'bg-red-50 border-red-300 shadow-sm';
 			textSubColor = 'text-red-600';
 			badgeClass = 'bg-red-100 text-red-700';
 			TimerIcon = AlertCircle;
-		} else if (order.minutes >= 10) {
+		} else if (orderAgeMinutes >= 10) {
 			cardClasses = 'bg-orange-50 border-orange-200';
 			textSubColor = 'text-orange-600';
 			badgeClass = 'bg-orange-100 text-orange-700';
@@ -65,7 +71,7 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 		<div className={`group relative p-4 rounded-xl border cursor-pointer transition-all duration-300 hover:shadow-md ${cardClasses}`}>
 			<div className="flex justify-between items-start mb-2">
 				<div className="flex items-center gap-2">
-					<span className={`text-sm font-bold ${textMainColor}`}>#{order.tag}</span>
+					<span className={`text-sm font-bold ${textMainColor}`}>#{orderLabel}</span>
 					{order.status === 'CLOSED' && (
 						<span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase bg-gray-100 text-gray-600">Closed</span>
 					)}
@@ -76,7 +82,7 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 				) : (
 					<div className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${badgeClass}`}>
 						<TimerIcon size={12} />
-						<span>{order.minutes}m</span>
+						<span>{orderAgeMinutes}m</span>
 					</div>
 				)}
 			</div>
@@ -105,7 +111,7 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 	);
 }
 
-function OrdersSidebar({ orders, selectedOrderId, getOrderTotal }) {
+function OrdersSidebar({ orders, selectedOrderId, onSelectOrder, getOrderTotal, draftCount = 0, onViewDrafts }) {
 	return (
 		<aside className="w-full lg:w-87.5 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col shrink-0">
 			<div className="px-5 py-4 border-b border-gray-100 bg-white z-10">
@@ -134,11 +140,31 @@ function OrdersSidebar({ orders, selectedOrderId, getOrderTotal }) {
 					<button className="flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md text-gray-500">closed</button>
 					<button className="flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md text-gray-500">all</button>
 				</div>
+
+				{draftCount > 0 && (
+					<div className="mt-3">
+						<button
+							onClick={onViewDrafts}
+							className="w-full flex items-center justify-between bg-linear-to-r from-amber-50 to-orange-50 border border-amber-200 hover:border-amber-300 shadow-sm text-amber-800 px-4 py-2.5 rounded-xl transition-all group cursor-pointer"
+						>
+							<div className="flex items-center gap-2">
+								<FileText size={16} className="text-amber-600" />
+								<span className="text-sm font-bold">Saved Drafts</span>
+							</div>
+							<div className="flex items-center gap-2">
+								<span className="bg-amber-200/70 text-amber-800 text-xs font-black px-2 py-1 rounded-md">{draftCount}</span>
+								<ChevronRight size={16} className="text-amber-400 group-hover:text-amber-600 transition-colors" />
+							</div>
+						</button>
+					</div>
+				)}
 			</div>
 
 			<div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 bg-gray-50/30">
 				{orders.map((order) => (
-					<OrderListCard key={order.id} order={order} isSelected={order.id === selectedOrderId} getOrderTotal={getOrderTotal} />
+					<div key={order.id} onClick={() => onSelectOrder?.(order.id)}>
+						<OrderListCard order={order} isSelected={order.id === selectedOrderId} getOrderTotal={getOrderTotal} />
+					</div>
 				))}
 			</div>
 		</aside>
