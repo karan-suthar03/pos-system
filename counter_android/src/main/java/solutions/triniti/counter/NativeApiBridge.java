@@ -2,6 +2,7 @@ package solutions.triniti.counter;
 
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
+import android.util.Log;
 
 import com.google.gson.Gson;
 
@@ -13,16 +14,27 @@ import java.util.concurrent.Executors;
 import solutions.triniti.core.Core;
 import solutions.triniti.core.bridge.BridgeRequest;
 import solutions.triniti.core.bridge.BridgeResponse;
+import solutions.triniti.counter.db.ProviderDatabase;
 
 public class NativeApiBridge {
 
+    private static final String TAG = "NativeApiBridge";
+
     private final WebView webView;
     private final Gson gson = new Gson();
-    private final Core core = new Core();
+    private final Core core;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public NativeApiBridge(WebView webView) {
         this.webView = webView;
+        Core initializedCore;
+        try {
+            initializedCore = new Core(new ProviderDatabase(webView.getContext()));
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Admin provider unavailable; starting without database", e);
+            initializedCore = new Core();
+        }
+        this.core = initializedCore;
     }
 
     @JavascriptInterface

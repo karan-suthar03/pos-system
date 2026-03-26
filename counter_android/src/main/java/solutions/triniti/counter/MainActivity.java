@@ -9,7 +9,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String COUNTER_URL = "http://10.0.2.2:3001/";
+    private static final String COUNTER_URL = "http://10.126.18.21:3001/";
 
     private WebView webView;
     private NativeApiBridge nativeApiBridge;
@@ -38,14 +38,14 @@ public class MainActivity extends AppCompatActivity {
         webView.addJavascriptInterface(nativeApiBridge, "nativeAPI");
     }
 
-    @Override
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-            return;
-        }
-        super.onBackPressed();
-    }
+//    @Override
+//    public void onBackPressed() {
+//        if (webView != null && webView.canGoBack()) {
+//            webView.goBack();
+//            return;
+//        }
+//        super.onBackPressed();
+//    }
 
     @Override
     protected void onDestroy() {

@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <queries>
+        <package android:name="${adminPackage}" />
+        <provider android:authorities="${adminProviderAuthority}" />
+    </queries>
+
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
