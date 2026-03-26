@@ -4,11 +4,14 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.util.Log;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import solutions.triniti.core.db.Database;
+import solutions.triniti.core.db.migration.CoreDatabaseBootstrap;
 
 public class AdminSqliteDatabase implements Database {
 
@@ -29,6 +32,12 @@ public class AdminSqliteDatabase implements Database {
                 // No-op for now.
             }
         };
+
+        try {
+            CoreDatabaseBootstrap.migrate(this);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to run database migrations", e);
+        }
     }
 
     @Override

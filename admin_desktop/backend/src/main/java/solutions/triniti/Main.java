@@ -5,6 +5,7 @@ import com.google.gson.Gson;
 import solutions.triniti.core.Core;
 import solutions.triniti.core.bridge.BridgeRequest;
 import solutions.triniti.core.bridge.BridgeResponse;
+import solutions.triniti.core.db.migration.CoreDatabaseBootstrap;
 import solutions.triniti.db.SqliteDatabase;
 
 public class Main {
@@ -14,7 +15,9 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         String dbPath = args.length > 0 ? args[0] : "pos.db";
-        CORE = new Core(new SqliteDatabase(dbPath));
+        SqliteDatabase database = new SqliteDatabase(dbPath);
+        CoreDatabaseBootstrap.migrate(database);
+        CORE = new Core(database);
 
         System.out.println("JAVA READY");
         System.out.flush();
