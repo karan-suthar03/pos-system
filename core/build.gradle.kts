@@ -17,4 +17,5 @@ kotlin {
 dependencies {
     implementation(kotlin("stdlib"))
     implementation(libs.gson)
+    compileOnly("com.j256.ormlite:ormlite-core:6.1")
 }

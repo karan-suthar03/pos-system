@@ -1,8 +1,8 @@
 package solutions.triniti.core.db.migration;
 
+import com.j256.ormlite.support.ConnectionSource;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import solutions.triniti.core.db.Database;
 
 import java.lang.reflect.Type;
 import java.util.Arrays;
@@ -30,8 +30,9 @@ public final class CoreMigrations {
                 }
 
                 @Override
-                public void apply(Database database) throws Exception {
-                    database.execute(
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    SqlMigrationSupport.execute(
+                        connectionSource,
                         "CREATE TABLE IF NOT EXISTS dishes (" +
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                         "name TEXT NOT NULL, " +
@@ -54,9 +55,8 @@ public final class CoreMigrations {
                 }
 
                 @Override
-                public void apply(Database database) throws Exception {
-                    List<Map<String, Object>> rows = database.query("SELECT COUNT(1) AS count FROM dishes");
-                    if (toInt(rows.get(0).get("count")) > 0) {
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    if (SqlMigrationSupport.queryForLong(connectionSource, "SELECT COUNT(1) FROM dishes") > 0) {
                         return;
                     }
 
@@ -69,7 +69,8 @@ public final class CoreMigrations {
                         String category = escapeSql(String.valueOf(dish.get("category")));
                         int price = toInt(dish.get("price")) * 100;
 
-                        database.execute(
+                        SqlMigrationSupport.execute(
+                            connectionSource,
                             "INSERT INTO dishes(name, category, price, is_available) VALUES ('" +
                             name + "', '" + category + "', " + price + ", 1)"
                         );
@@ -88,8 +89,9 @@ public final class CoreMigrations {
                 }
 
                 @Override
-                public void apply(Database database) throws Exception {
-                    database.execute(
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    SqlMigrationSupport.execute(
+                        connectionSource,
                         "CREATE TABLE IF NOT EXISTS orders (" +
                         "order_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                         "display_id TEXT, " +
@@ -102,7 +104,8 @@ public final class CoreMigrations {
                         ")"
                     );
 
-                    database.execute(
+                    SqlMigrationSupport.execute(
+                        connectionSource,
                         "CREATE TABLE IF NOT EXISTS order_items (" +
                         "order_item_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                         "order_id INTEGER NOT NULL, " +
@@ -131,20 +134,19 @@ public final class CoreMigrations {
                 }
 
                 @Override
-                public void apply(Database database) throws Exception {
-                    if (!hasColumn(database, "orders", "display_id")) {
-                        database.execute("ALTER TABLE orders ADD COLUMN display_id TEXT");
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    if (!hasColumn(connectionSource, "orders", "display_id")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE orders ADD COLUMN display_id TEXT");
                     }
                 }
             }
         );
     }
 
-    private static boolean hasColumn(Database database, String table, String column) throws Exception {
-        List<Map<String, Object>> rows = database.query("PRAGMA table_info(" + table + ")");
-        for (Map<String, Object> row : rows) {
-            Object name = row.get("name");
-            if (name != null && column.equalsIgnoreCase(String.valueOf(name))) {
+    private static boolean hasColumn(ConnectionSource connectionSource, String table, String column) throws Exception {
+        List<String[]> rows = SqlMigrationSupport.queryForRows(connectionSource, "PRAGMA table_info(" + table + ")");
+        for (String[] row : rows) {
+            if (row.length > 1 && column.equalsIgnoreCase(String.valueOf(row[1]))) {
                 return true;
             }
         }

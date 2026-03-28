@@ -4,21 +4,23 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.util.Log;
+import com.j256.ormlite.android.AndroidConnectionSource;
+import com.j256.ormlite.support.ConnectionSource;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import solutions.triniti.core.db.Database;
+import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.db.migration.CoreDatabaseBootstrap;
 
-public class AdminSqliteDatabase implements Database {
+public class AdminSqliteDatabase implements OrmLiteConnectionProvider {
 
     private static final String DB_NAME = "admin.db";
     private static final int DB_VERSION = 1;
 
     private final SQLiteOpenHelper helper;
+    private final ConnectionSource connectionSource;
 
     public AdminSqliteDatabase(Context context) {
         this.helper = new SQLiteOpenHelper(context.getApplicationContext(), DB_NAME, null, DB_VERSION) {
@@ -33,6 +35,8 @@ public class AdminSqliteDatabase implements Database {
             }
         };
 
+        this.connectionSource = new AndroidConnectionSource(helper.getWritableDatabase());
+
         try {
             CoreDatabaseBootstrap.migrate(this);
         } catch (Exception e) {
@@ -40,7 +44,6 @@ public class AdminSqliteDatabase implements Database {
         }
     }
 
-    @Override
     public List<Map<String, Object>> query(String sql) throws Exception {
         SQLiteDatabase db = helper.getReadableDatabase();
 
@@ -60,7 +63,6 @@ public class AdminSqliteDatabase implements Database {
         }
     }
 
-    @Override
     public int execute(String sql) throws Exception {
         SQLiteDatabase db = helper.getWritableDatabase();
         String normalized = sql.trim().toUpperCase();
@@ -76,5 +78,10 @@ public class AdminSqliteDatabase implements Database {
 
         db.execSQL(sql);
         return 0;
+    }
+
+    @Override
+    public ConnectionSource getConnectionSource() {
+        return connectionSource;
     }
 }

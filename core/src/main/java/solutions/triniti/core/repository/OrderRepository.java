@@ -1,104 +1,61 @@
 package solutions.triniti.core.repository;
 
-import solutions.triniti.core.db.Database;
+import com.j256.ormlite.dao.Dao;
+import com.j256.ormlite.dao.DaoManager;
+import com.j256.ormlite.stmt.QueryBuilder;
+import solutions.triniti.core.db.OrmLiteConnectionProvider;
+import solutions.triniti.core.model.Dish;
 import solutions.triniti.core.model.Order;
 import solutions.triniti.core.model.OrderItem;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class OrderRepository {
+	private final Dao<Order, Integer> orderDao;
+	private final Dao<OrderItem, Integer> orderItemDao;
+	private final DishRepository dishRepository;
 
-	private final Database database;
-
-	public OrderRepository(Database database) {
-		if (database == null) {
-			throw new IllegalArgumentException("Database cannot be null");
+	public OrderRepository(OrmLiteConnectionProvider ormLiteConnectionProvider) {
+		if (ormLiteConnectionProvider == null) {
+			throw new IllegalArgumentException("Connection provider cannot be null");
 		}
-		this.database = database;
+
+		Dao<Order, Integer> resolvedOrderDao;
+		Dao<OrderItem, Integer> resolvedOrderItemDao;
+		try {
+			resolvedOrderDao = DaoManager.createDao(ormLiteConnectionProvider.getConnectionSource(), Order.class);
+			resolvedOrderItemDao = DaoManager.createDao(ormLiteConnectionProvider.getConnectionSource(), OrderItem.class);
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to initialize ORMLite DAOs", e);
+		}
+
+		this.orderDao = resolvedOrderDao;
+		this.orderItemDao = resolvedOrderItemDao;
+		this.dishRepository = new DishRepository(ormLiteConnectionProvider);
 	}
 
 	public List<Order> listAll() throws Exception {
-		List<Map<String, Object>> rows = database.query(
-			"SELECT order_id, display_id, order_tag, is_payment_done, order_total, order_status, created_at " +
-			"FROM orders ORDER BY order_id DESC"
-		);
-
-		List<Order> orders = new ArrayList<>();
-		for (Map<String, Object> row : rows) {
-			orders.add(toOrder(row));
-		}
-
-		return orders;
+		return orderDao.queryBuilder()
+			.orderBy("order_id", false)
+			.query();
 	}
 
 	public List<OrderItem> listItemsByOrderId(long orderId) throws Exception {
-		List<Map<String, Object>> rows = database.query(
-			"SELECT order_item_id, order_id, dish_id, quantity, dish_name_snapshot, price_snapshot, item_status " +
-			"FROM order_items WHERE order_id = " + orderId + " ORDER BY order_item_id ASC"
-		);
-
-		List<OrderItem> items = new ArrayList<>();
-		for (Map<String, Object> row : rows) {
-			OrderItem item = new OrderItem();
-			item.order_item_id = toInt(row.get("order_item_id"));
-			item.order_id = toInt(row.get("order_id"));
-			item.dish_id = toInt(row.get("dish_id"));
-			item.quantity = toInt(row.get("quantity"));
-			item.dish_name_snapshot = row.get("dish_name_snapshot") == null ? null : String.valueOf(row.get("dish_name_snapshot"));
-			item.price_snapshot = toInt(row.get("price_snapshot"));
-			item.item_status = row.get("item_status") == null ? null : String.valueOf(row.get("item_status"));
-			items.add(item);
-		}
-
-		return items;
-	}
-
-	private int toInt(Object value) {
-		if (value == null) {
-			return 0;
-		}
-		if (value instanceof Number) {
-			return ((Number) value).intValue();
-		}
-		return Integer.parseInt(String.valueOf(value));
+		QueryBuilder<OrderItem, Integer> queryBuilder = orderItemDao.queryBuilder();
+		queryBuilder.where().eq("order_id", orderId);
+		queryBuilder.orderBy("order_item_id", true);
+		return queryBuilder.query();
 	}
 
 	public Order createOrder(String tag) throws Exception {
-		String normalizedTag = normalizeTag(tag);
-		String displayId = "0";
-
-		String insertSql =
-			"INSERT INTO orders(display_id, order_tag, is_payment_done, order_total, order_status) VALUES ('" +
-			escapeSql(displayId) + "', " +
-			(normalizedTag == null ? "NULL" : "'" + escapeSql(normalizedTag) + "'") + ", 0, 0, 'OPEN')";
-
-		database.execute(insertSql);
-
-		List<Map<String, Object>> rows = database.query(
-			"SELECT order_id, display_id, order_tag, is_payment_done, order_total, order_status, created_at " +
-			"FROM orders ORDER BY order_id DESC LIMIT 1"
-		);
-
-
-		if (rows.isEmpty()) {
-			throw new IllegalStateException("Order created but could not be loaded");
-		}
-
-		return toOrder(rows.get(0));
-	}
-
-	private Order toOrder(Map<String, Object> row) {
 		Order order = new Order();
-		order.order_id = toInt(row.get("order_id"));
-		order.display_id = row.get("display_id") == null ? null : String.valueOf(row.get("display_id"));
-		order.order_tag = row.get("order_tag") == null ? null : String.valueOf(row.get("order_tag"));
-		order.is_payment_done = toInt(row.get("is_payment_done")) == 1;
-		order.order_total = toInt(row.get("order_total"));
-		order.order_status = row.get("order_status") == null ? null : String.valueOf(row.get("order_status"));
-		order.created_at = row.get("created_at") == null ? null : String.valueOf(row.get("created_at"));
-		return order;
+		order.display_id = "0";
+		order.order_tag = normalizeTag(tag);
+		order.is_payment_done = false;
+		order.order_total = 0;
+		order.order_status = "OPEN";
+		orderDao.create(order);
+		return orderDao.queryForId(order.order_id);
 	}
 
 	private String normalizeTag(String tag) {
@@ -114,19 +71,21 @@ public class OrderRepository {
 		return trimmed;
 	}
 
-	private String escapeSql(String value) {
-		return value == null ? "" : value.replace("'", "''");
-	}
-
 	public void addOrderItem(int orderId, int dishId, int quantity) {
-		String insertSql =
-			"INSERT INTO order_items(order_id, dish_id, quantity, dish_name_snapshot, price_snapshot, item_status) " +
-			"VALUES (" + orderId + ", " + dishId + ", " + quantity + ", " +
-			"(SELECT name FROM dishes WHERE id = " + dishId + "), " +
-			"(SELECT price FROM dishes WHERE id = " + dishId + "), 'PENDING')";
-
 		try {
-			database.execute(insertSql);
+			Dish dish = dishRepository.getById(dishId);
+			if (dish == null) {
+				throw new IllegalArgumentException("Dish not found for id: " + dishId);
+			}
+
+			OrderItem item = new OrderItem();
+			item.order_id = orderId;
+			item.dish_id = dishId;
+			item.quantity = quantity;
+			item.dish_name_snapshot = dish.dish_name;
+			item.price_snapshot = dish.price;
+			item.item_status = "PENDING";
+			orderItemDao.create(item);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to add order item: " + e.getMessage());
@@ -134,13 +93,20 @@ public class OrderRepository {
 	}
 
 	public void updateOrderTotal(int orderId) {
-		String updateSql =
-			"UPDATE orders SET order_total = " +
-			"(SELECT COALESCE(SUM(price_snapshot * quantity), 0) FROM order_items WHERE order_id = " + orderId + ") " +
-			"WHERE order_id = " + orderId;
-
 		try {
-			database.execute(updateSql);
+			int computedTotal = 0;
+			List<OrderItem> items = listItemsByOrderId(orderId);
+			for (OrderItem item : items) {
+				computedTotal += item.price_snapshot * item.quantity;
+			}
+
+			Order order = orderDao.queryForId(orderId);
+			if (order == null) {
+				throw new IllegalArgumentException("Order not found for id: " + orderId);
+			}
+
+			order.order_total = computedTotal;
+			orderDao.update(order);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to update order total: " + e.getMessage());
@@ -149,16 +115,7 @@ public class OrderRepository {
 
 	public Order getOrderById(int orderId) {
 		try {
-			List<Map<String, Object>> rows = database.query(
-				"SELECT order_id, display_id, order_tag, is_payment_done, order_total, order_status, created_at " +
-				"FROM orders WHERE order_id = " + orderId + " LIMIT 1"
-			);
-
-			if (rows.isEmpty()) {
-				return null;
-			}
-
-			return toOrder(rows.get(0));
+			return orderDao.queryForId(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to get order by ID: " + e.getMessage());

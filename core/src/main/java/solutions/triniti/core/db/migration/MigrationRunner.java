@@ -1,32 +1,37 @@
 package solutions.triniti.core.db.migration;
 
-import solutions.triniti.core.db.Database;
+import com.j256.ormlite.support.ConnectionSource;
+import solutions.triniti.core.db.OrmLiteConnectionProvider;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.HashSet;
 
 public final class MigrationRunner {
 
     private MigrationRunner() {
     }
 
-    public static void migrate(Database database, List<Migration> migrations) throws Exception {
-        if (database == null) {
-            throw new IllegalArgumentException("Database cannot be null");
+    public static void migrate(OrmLiteConnectionProvider provider, List<Migration> migrations) throws Exception {
+        if (provider == null) {
+            throw new IllegalArgumentException("Connection provider cannot be null");
+        }
+
+        ConnectionSource connectionSource = provider.getConnectionSource();
+        if (connectionSource == null) {
+            throw new IllegalArgumentException("Connection source cannot be null");
         }
 
         if (migrations == null || migrations.isEmpty()) {
             return;
         }
 
-        ensureMigrationTable(database);
+        ensureMigrationTable(connectionSource);
 
-        Set<Integer> applied = getAppliedVersions(database);
+        Set<Integer> applied = getAppliedVersions(connectionSource);
         List<Migration> orderedMigrations = new ArrayList<>(migrations);
         orderedMigrations.sort(Comparator.comparingInt(Migration::version));
         validateUniqueVersions(orderedMigrations);
@@ -36,12 +41,13 @@ public final class MigrationRunner {
                 continue;
             }
 
-            applySingleMigration(database, migration);
+            applySingleMigration(connectionSource, migration);
         }
     }
 
-    private static void ensureMigrationTable(Database database) throws Exception {
-        database.execute(
+    private static void ensureMigrationTable(ConnectionSource connectionSource) throws Exception {
+        SqlMigrationSupport.execute(
+            connectionSource,
             "CREATE TABLE IF NOT EXISTS schema_migrations (" +
             "version INTEGER PRIMARY KEY, " +
             "name TEXT NOT NULL, " +
@@ -50,35 +56,39 @@ public final class MigrationRunner {
         );
     }
 
-    private static Set<Integer> getAppliedVersions(Database database) throws Exception {
-        List<Map<String, Object>> rows = database.query(
+    private static Set<Integer> getAppliedVersions(ConnectionSource connectionSource) throws Exception {
+        List<String[]> rows = SqlMigrationSupport.queryForRows(
+            connectionSource,
             "SELECT version FROM schema_migrations ORDER BY version ASC"
         );
 
-        if (rows == null || rows.isEmpty()) {
+        if (rows.isEmpty()) {
             return Collections.emptySet();
         }
 
         Set<Integer> versions = new HashSet<>();
-        for (Map<String, Object> row : rows) {
-            versions.add(toInt(row.get("version")));
+        for (String[] row : rows) {
+            if (row.length > 0) {
+                versions.add(toInt(row[0]));
+            }
         }
 
         return versions;
     }
 
-    private static void applySingleMigration(Database database, Migration migration) throws Exception {
+    private static void applySingleMigration(ConnectionSource connectionSource, Migration migration) throws Exception {
         try {
-            database.execute("BEGIN");
-            migration.apply(database);
-            database.execute(
+            SqlMigrationSupport.execute(connectionSource, "BEGIN");
+            migration.apply(connectionSource);
+            SqlMigrationSupport.execute(
+                connectionSource,
                 "INSERT INTO schema_migrations(version, name) VALUES (" +
                 migration.version() + ", '" + escapeSql(migration.name()) + "')"
             );
-            database.execute("COMMIT");
+            SqlMigrationSupport.execute(connectionSource, "COMMIT");
         } catch (Exception migrationError) {
             try {
-                database.execute("ROLLBACK");
+                SqlMigrationSupport.execute(connectionSource, "ROLLBACK");
             } catch (Exception rollbackError) {
                 migrationError.addSuppressed(rollbackError);
             }

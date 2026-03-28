@@ -1,16 +1,15 @@
 package solutions.triniti.admin.db;
 
 import android.content.Context;
-import solutions.triniti.core.db.Database;
 
 public final class AdminDatabase {
 
-    private static volatile Database instance;
+    private static volatile AdminSqliteDatabase instance;
 
     private AdminDatabase() {
     }
 
-    public static Database get(Context context) {
+    public static AdminSqliteDatabase get(Context context) {
         if (instance == null) {
             synchronized (AdminDatabase.class) {
                 if (instance == null) {

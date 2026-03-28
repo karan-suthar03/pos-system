@@ -4,19 +4,19 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import solutions.triniti.core.bridge.BridgeMessage;
 import solutions.triniti.core.bridge.BridgeResponse;
-import solutions.triniti.core.db.Database;
+import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.db.migration.CoreDatabaseBootstrap;
 import solutions.triniti.core.model.Order;
 import solutions.triniti.core.repository.OrderRepository;
 
 public class OrderRequestHandler implements RequestHandler {
 
-    private final Database database;
+    private final OrmLiteConnectionProvider ormLiteConnectionProvider;
     private final OrderRepository orderRepository;
 
-    public OrderRequestHandler(Database database) {
-        this.database = database;
-        this.orderRepository = database == null ? null : new OrderRepository(database);
+    public OrderRequestHandler(OrmLiteConnectionProvider ormLiteConnectionProvider) {
+        this.ormLiteConnectionProvider = ormLiteConnectionProvider;
+        this.orderRepository = ormLiteConnectionProvider == null ? null : new OrderRepository(ormLiteConnectionProvider);
     }
 
     @Override
@@ -33,7 +33,7 @@ public class OrderRequestHandler implements RequestHandler {
         }
 
         if ("order.ensureTable".equals(type)) {
-            CoreDatabaseBootstrap.migrate(database);
+            CoreDatabaseBootstrap.migrate(ormLiteConnectionProvider);
             JsonObject data = new JsonObject();
             data.addProperty("type", type);
             data.addProperty("message", "Order tables ensured");

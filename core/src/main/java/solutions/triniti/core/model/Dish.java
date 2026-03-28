@@ -1,16 +1,26 @@
 package solutions.triniti.core.model;
 
 import com.google.gson.JsonObject;
+import com.j256.ormlite.field.DatabaseField;
+import com.j256.ormlite.table.DatabaseTable;
 
+@DatabaseTable(tableName = "dishes")
 public class Dish {
 
+    @DatabaseField(columnName = "id", generatedId = true, allowGeneratedIdInsert = true)
     public int dish_id;
 
+    @DatabaseField(columnName = "name")
     public String dish_name;
 
+    @DatabaseField(columnName = "category")
     public String category;
 
+    @DatabaseField(columnName = "price")
     public int price;
+
+    @DatabaseField(columnName = "is_available")
+    public boolean is_available = true;
 
     public Dish(String name, String category, int price) {
         this.dish_name = name;

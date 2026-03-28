@@ -39,6 +39,9 @@ dependencies {
 
     implementation(project(":core"))
 
+    implementation("com.j256.ormlite:ormlite-android:6.1")
+    implementation(libs.gson)
+
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)

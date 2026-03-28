@@ -1,44 +1,46 @@
 package solutions.triniti.core.repository;
 
-import solutions.triniti.core.db.Database;
+import com.j256.ormlite.dao.Dao;
+import com.j256.ormlite.dao.DaoManager;
+import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.db.migration.CoreDatabaseBootstrap;
 import solutions.triniti.core.model.Dish;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class DishRepository {
 
-    private final Database database;
+    private final OrmLiteConnectionProvider ormLiteConnectionProvider;
+    private final Dao<Dish, Integer> dishDao;
 
-    public DishRepository(Database database) {
-        if (database == null) {
-            throw new IllegalArgumentException("Database cannot be null");
+    public DishRepository(OrmLiteConnectionProvider ormLiteConnectionProvider) {
+        if (ormLiteConnectionProvider == null) {
+            throw new IllegalArgumentException("Connection provider cannot be null");
         }
-        this.database = database;
+        this.ormLiteConnectionProvider = ormLiteConnectionProvider;
+
+        Dao<Dish, Integer> resolvedDishDao;
+        try {
+            resolvedDishDao = DaoManager.createDao(ormLiteConnectionProvider.getConnectionSource(), Dish.class);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to initialize ORMLite DAO for dishes", e);
+        }
+
+        this.dishDao = resolvedDishDao;
     }
 
     public void ensureTable() throws Exception {
-        CoreDatabaseBootstrap.migrate(database);
+        CoreDatabaseBootstrap.migrate(ormLiteConnectionProvider);
     }
 
     public List<Dish> listAll() throws Exception {
-        List<Map<String, Object>> rows = database.query(
-            "SELECT id, name, category, price FROM dishes ORDER BY name ASC"
-        );
-        List<Dish> dishes = new ArrayList<>();
-        for (Map<String, Object> row : rows) {
-            dishes.add(toDish(row));
-        }
-        return dishes;
+        return dishDao.queryBuilder()
+            .orderBy("name", true)
+            .query();
     }
 
     public Dish getById(long id) throws Exception {
-        List<Map<String, Object>> rows = database.query(
-            "SELECT id, name, category, price FROM dishes WHERE id = " + id + " LIMIT 1"
-        );
-        return rows.isEmpty() ? null : toDish(rows.get(0));
+        return dishDao.queryForId((int) id);
     }
 
     public int create(String name, String category, int price, boolean isAvailable) throws Exception {
@@ -46,41 +48,61 @@ public class DishRepository {
         validateCategory(category);
         validatePrice(price);
 
-        String sql =
-            "INSERT INTO dishes(name, category, price, is_available) VALUES ('" +
-            escapeSql(name.trim()) + "', '" + escapeSql(category.trim()) + "', " + price + ", " +
-            (isAvailable ? 1 : 0) + ")";
-
-        return database.execute(sql);
+        Dish dish = new Dish();
+        dish.dish_name = name.trim();
+        dish.category = category.trim();
+        dish.price = price;
+        dish.is_available = isAvailable;
+        return dishDao.create(dish);
     }
 
     public int create(Dish dish) throws Exception {
-        if (dish.dish_id == -1) {
-            return create(dish.dish_name, dish.category, dish.price, true);
+        if (dish == null) {
+            throw new IllegalArgumentException("Dish cannot be null");
         }
 
-        return database.execute("INSERT INTO dishes(id, name, category, price) VALUES (" + dish.dish_id + ", '" + dish.dish_name + "', '" + dish.category + "', " + dish.price + ")");
+        validateName(dish.dish_name);
+        validateCategory(dish.category);
+        validatePrice(dish.price);
+
+        dish.dish_name = dish.dish_name.trim();
+        dish.category = dish.category.trim();
+        return dishDao.create(dish);
     }
+
     public int updatePrice(long id, int price) throws Exception {
         validatePrice(price);
-        return database.execute("UPDATE dishes SET price = " + price + " WHERE id = " + id);
+
+        Dish dish = dishDao.queryForId((int) id);
+        if (dish == null) {
+            return 0;
+        }
+        dish.price = price;
+        return dishDao.update(dish);
     }
 
     public int updateCategory(long id, String category) throws Exception {
         validateCategory(category);
-        return database.execute(
-            "UPDATE dishes SET category = '" + escapeSql(category.trim()) + "' WHERE id = " + id
-        );
+
+        Dish dish = dishDao.queryForId((int) id);
+        if (dish == null) {
+            return 0;
+        }
+        dish.category = category.trim();
+        return dishDao.update(dish);
     }
 
     public int setAvailability(long id, boolean isAvailable) throws Exception {
-        return database.execute(
-            "UPDATE dishes SET is_available = " + (isAvailable ? 1 : 0) + " WHERE id = " + id
-        );
+        Dish dish = dishDao.queryForId((int) id);
+        if (dish == null) {
+            return 0;
+        }
+        dish.is_available = isAvailable;
+        return dishDao.update(dish);
     }
 
     public int delete(long id) throws Exception {
-        return database.execute("DELETE FROM dishes WHERE id = " + id);
+        return dishDao.deleteById((int) id);
     }
 
     private void validateName(String name) {
@@ -99,28 +121,5 @@ public class DishRepository {
         if (price < 0) {
             throw new IllegalArgumentException("Dish price must be a non-negative number");
         }
-    }
-
-    private String escapeSql(String value) {
-        return value.replace("'", "''");
-    }
-
-    private Dish toDish(Map<String, Object> row) {
-        Dish dish = new Dish();
-        dish.dish_id = toInt(row.get("id"));
-        dish.dish_name = row.get("name") == null ? null : String.valueOf(row.get("name"));
-        dish.category = row.get("category") == null ? null : String.valueOf(row.get("category"));
-        dish.price = toInt(row.get("price"));
-        return dish;
-    }
-
-    private int toInt(Object value) {
-        if (value == null) {
-            return 0;
-        }
-        if (value instanceof Number) {
-            return ((Number) value).intValue();
-        }
-        return Integer.parseInt(String.valueOf(value));
     }
 }

@@ -6,24 +6,35 @@ import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
+import android.os.Bundle;
+
+import com.google.gson.Gson;
+
+import solutions.triniti.core.Core;
+import solutions.triniti.core.bridge.BridgeRequest;
+import solutions.triniti.core.bridge.BridgeResponse;
 
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import solutions.triniti.core.db.Database;
 
 public class DatabaseProvider extends ContentProvider {
 
     public static final String PATH_QUERY = "query";
     public static final String PATH_EXECUTE = "execute";
     public static final String KEY_SQL = "sql";
+    public static final String METHOD_BRIDGE_HANDLE = "bridge.handle";
+    public static final String KEY_REQUEST_JSON = "request_json";
+    public static final String KEY_RESPONSE_JSON = "response_json";
 
     private static final int CODE_QUERY = 1;
     private static final int CODE_EXECUTE = 2;
 
     private UriMatcher uriMatcher;
-    private Database database;
+    private AdminSqliteDatabase database;
+    private Core core;
+    private final Gson gson = new Gson();
 
     @Override
     public boolean onCreate() {
@@ -32,6 +43,7 @@ public class DatabaseProvider extends ContentProvider {
         }
 
         database = AdminDatabase.get(getContext());
+        core = new Core(database);
 
         String authority = getContext().getPackageName() + ".provider";
         uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
@@ -39,6 +51,32 @@ public class DatabaseProvider extends ContentProvider {
         uriMatcher.addURI(authority, PATH_EXECUTE, CODE_EXECUTE);
 
         return true;
+    }
+
+    @Override
+    public Bundle call(String method, String arg, Bundle extras) {
+        if (!METHOD_BRIDGE_HANDLE.equals(method)) {
+            return super.call(method, arg, extras);
+        }
+
+        String requestJson = extras == null ? null : extras.getString(KEY_REQUEST_JSON);
+        if (requestJson == null || requestJson.trim().isEmpty()) {
+            return responseBundle(toErrorResponseJson(null, "Missing request_json"));
+        }
+
+        String requestId = null;
+        try {
+            BridgeRequest request = gson.fromJson(requestJson, BridgeRequest.class);
+            if (request != null) {
+                requestId = request.getRequestId();
+            }
+
+            BridgeResponse response = core.handleMessage(request);
+            return responseBundle(gson.toJson(response));
+        } catch (Exception e) {
+            String message = e.getMessage() == null ? "Unknown error" : e.getMessage();
+            return responseBundle(toErrorResponseJson(requestId, message));
+        }
     }
 
     @Override
@@ -135,6 +173,16 @@ public class DatabaseProvider extends ContentProvider {
         }
 
         throw new IllegalArgumentException("Missing SQL. Provide via URI ?sql=, ContentValues[sql], or selection.");
+    }
+
+    private Bundle responseBundle(String responseJson) {
+        Bundle out = new Bundle();
+        out.putString(KEY_RESPONSE_JSON, responseJson);
+        return out;
+    }
+
+    private String toErrorResponseJson(String requestId, String message) {
+        return gson.toJson(BridgeResponse.error(requestId, message));
     }
 
     private Cursor toCursor(List<Map<String, Object>> rows) {

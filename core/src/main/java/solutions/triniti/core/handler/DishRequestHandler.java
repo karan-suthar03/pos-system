@@ -5,7 +5,7 @@ import com.google.gson.JsonObject;
 
 import solutions.triniti.core.bridge.BridgeMessage;
 import solutions.triniti.core.bridge.BridgeResponse;
-import solutions.triniti.core.db.Database;
+import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.model.Dish;
 import solutions.triniti.core.repository.DishRepository;
 
@@ -15,8 +15,8 @@ public class DishRequestHandler implements RequestHandler {
 
     private final DishRepository dishRepository;
 
-    public DishRequestHandler(Database database) {
-        this.dishRepository = database == null ? null : new DishRepository(database);
+    public DishRequestHandler(OrmLiteConnectionProvider ormLiteConnectionProvider) {
+        this.dishRepository = ormLiteConnectionProvider == null ? null : new DishRepository(ormLiteConnectionProvider);
     }
 
     @Override

@@ -6,7 +6,7 @@ import com.google.gson.JsonObject;
 import solutions.triniti.core.bridge.BridgeMessage;
 import solutions.triniti.core.bridge.BridgeRequest;
 import solutions.triniti.core.bridge.BridgeResponse;
-import solutions.triniti.core.db.Database;
+import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.handler.DishRequestHandler;
 import solutions.triniti.core.handler.OrderRequestHandler;
 import solutions.triniti.core.handler.PrintRequestHandler;
@@ -17,24 +17,24 @@ import java.util.List;
 
 public class Core {
 
-    private final Database database;
+    private final OrmLiteConnectionProvider ormLiteConnectionProvider;
     private final List<RequestHandler> handlers;
 
     public Core() {
         this(null);
     }
 
-    public Core(Database database) {
-        this.database = database;
+    public Core(OrmLiteConnectionProvider ormLiteConnectionProvider) {
+        this.ormLiteConnectionProvider = ormLiteConnectionProvider;
         this.handlers = Arrays.asList(
-            new DishRequestHandler(database),
-            new OrderRequestHandler(database),
+            new DishRequestHandler(ormLiteConnectionProvider),
+            new OrderRequestHandler(ormLiteConnectionProvider),
             new PrintRequestHandler()
         );
     }
 
-    public Database getDatabase() {
-        return database;
+    public OrmLiteConnectionProvider getOrmLiteConnectionProvider() {
+        return ormLiteConnectionProvider;
     }
 
     public BridgeResponse handleMessage(BridgeRequest request) {

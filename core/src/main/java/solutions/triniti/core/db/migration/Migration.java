@@ -1,6 +1,6 @@
 package solutions.triniti.core.db.migration;
 
-import solutions.triniti.core.db.Database;
+import com.j256.ormlite.support.ConnectionSource;
 
 public interface Migration {
 
@@ -8,5 +8,5 @@ public interface Migration {
 
     String name();
 
-    void apply(Database database) throws Exception;
+    void apply(ConnectionSource connectionSource) throws Exception;
 }

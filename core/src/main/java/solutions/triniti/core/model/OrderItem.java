@@ -1,21 +1,31 @@
 package solutions.triniti.core.model;
 
 import com.google.gson.JsonObject;
+import com.j256.ormlite.field.DatabaseField;
+import com.j256.ormlite.table.DatabaseTable;
 
+@DatabaseTable(tableName = "order_items")
 public class OrderItem {
 
+    @DatabaseField(columnName = "order_item_id", generatedId = true)
     public int order_item_id;
 
+    @DatabaseField(columnName = "order_id")
     public int order_id;
 
+    @DatabaseField(columnName = "dish_id")
     public int dish_id;
 
+    @DatabaseField(columnName = "quantity")
     public int quantity;
 
+    @DatabaseField(columnName = "dish_name_snapshot")
     public String dish_name_snapshot;
 
+    @DatabaseField(columnName = "price_snapshot")
     public int price_snapshot;
 
+    @DatabaseField(columnName = "item_status")
     public String item_status;
 
     public OrderItem() {

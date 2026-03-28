@@ -118,10 +118,12 @@ async function getOrders() {
 async function createOrder(order) {
   if (window.NativeApi?.handleMessage) {
     try {
-      await handleMessage({
+      let result = await handleMessage({
         type: `${typePrefix}createOrder`,
         params: { order },
       });
+
+      console.log("Create order result:", result);
     } catch (_error) {
 
     }
