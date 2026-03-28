@@ -5,7 +5,12 @@ import OrdersSidebar from './components/OrdersSidebar';
 import OrderDetailsPanel from './components/OrderDetailsPanel';
 import CreateOrderPopup from './components/CreateOrderPopup';
 import DraftsModal from './components/DraftsModal';
-import { getOrders } from './API/orders';
+import {
+  cancelOrder,
+  completeOrder,
+  getOrders,
+  setOrderPaymentStatus,
+} from './API/orders';
 import { useDrafts } from './hooks/useDrafts';
 
 function getOrderTotal(order) {
@@ -16,20 +21,36 @@ function App() {
   const [showCreateOrderPopup, setShowCreateOrderPopup] = useState(false);
   const [showDraftsModal, setShowDraftsModal] = useState(false);
   const [orders, setOrders] = useState([]);
+  const [autoPayEnabled, setAutoPayEnabled] = useState(() => {
+    const saved = localStorage.getItem('counter_auto_pay_enabled');
+    return saved === null ? true : saved === 'true';
+  });
+  const [actionState, setActionState] = useState({ orderId: null, action: null });
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [editingDraftId, setEditingDraftId] = useState(null);
   const [draftToResume, setDraftToResume] = useState(null);
   const { drafts, addDraft, updateDraft, deleteDraft, getDraft } = useDrafts();
 
-  async function fetchOrders() {
-    const fetched = await getOrders();
-    console.log('Fetched orders:', fetched);
+  async function fetchOrders({ selectNewest = false } = {}) {
+    let fetched = [];
+    try {
+      fetched = await getOrders();
+      console.log('Fetched orders:', fetched);
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+    }
+
     setOrders(fetched);
+    const visibleOrders = fetched.filter((order) => order.status !== 'CANCELLED');
     setSelectedOrderId((currentSelectedId) => {
-      if (currentSelectedId && fetched.some((order) => order.id === currentSelectedId)) {
+      if (selectNewest) {
+        return visibleOrders[0]?.id ?? null;
+      }
+
+      if (currentSelectedId && visibleOrders.some((order) => order.id === currentSelectedId)) {
         return currentSelectedId;
       }
-      return fetched[0]?.id ?? null;
+      return visibleOrders[0]?.id ?? null;
     });
   }
 
@@ -43,8 +64,12 @@ function App() {
     }
   }, [showDraftsModal, drafts.length]);
 
+  useEffect(() => {
+    localStorage.setItem('counter_auto_pay_enabled', String(autoPayEnabled));
+  }, [autoPayEnabled]);
+
   const stats = useMemo(() => {
-    const active = orders.filter((order) => order.status !== 'CLOSED').length;
+    const active = orders.filter((order) => order.status === 'OPEN').length;
     const closed = orders.filter((order) => order.status === 'CLOSED').length;
     const revenue = orders
       .filter((order) => order.paymentDone)
@@ -53,7 +78,15 @@ function App() {
     return { active, closed, revenue, draftCount };
   }, [orders, drafts]);
 
-  const selectedOrder = orders.find((order) => order.id === selectedOrderId) || orders[0] || null;
+  const visibleOrders = useMemo(
+    () => orders.filter((order) => order.status !== 'CANCELLED'),
+    [orders],
+  );
+
+  const selectedOrder =
+    visibleOrders.find((order) => order.id === selectedOrderId) ||
+    visibleOrders[0] ||
+    null;
 
   function handleOrderCreated() {
     setShowCreateOrderPopup(false);
@@ -64,7 +97,7 @@ function App() {
       deleteDraft(editingDraftId);
     }
 
-    fetchOrders();
+    fetchOrders({ selectNewest: true });
   }
 
   function handleSaveDraft(order, draftId = null) {
@@ -94,6 +127,53 @@ function App() {
     setDraftToResume(null);
   }
 
+  function updateOrderInState(updatedOrder) {
+    if (!updatedOrder) {
+      return;
+    }
+
+    setOrders((currentOrders) =>
+      currentOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)),
+    );
+  }
+
+  async function runOrderAction(order, action, execute) {
+    if (!order?.id) {
+      return;
+    }
+
+    try {
+      setActionState({ orderId: order.id, action });
+      const updatedOrder = await execute(order.id);
+      updateOrderInState(updatedOrder);
+    } catch (error) {
+      console.error(`Failed to ${action}:`, error);
+    } finally {
+      setActionState({ orderId: null, action: null });
+    }
+  }
+
+  async function handleTogglePayment(order) {
+    await runOrderAction(order, 'payment', (orderId) =>
+      setOrderPaymentStatus(orderId, !order.paymentDone),
+    );
+  }
+
+  async function handleCancelOrder(order) {
+    await runOrderAction(order, 'cancel', (orderId) => cancelOrder(orderId));
+  }
+
+  async function handleCompleteOrder(order) {
+    await runOrderAction(order, 'complete', async (orderId) => {
+      let updatedOrder = await completeOrder(orderId);
+      if (autoPayEnabled && updatedOrder && !updatedOrder.paymentDone) {
+        updatedOrder = await setOrderPaymentStatus(orderId, true);
+      }
+
+      return updatedOrder;
+    });
+  }
+
   return (
     <div className="min-h-screen bg-gray-50/50 flex flex-col font-sans text-slate-900">
       <CounterHeader />
@@ -114,8 +194,17 @@ function App() {
           getOrderTotal={getOrderTotal}
           draftCount={drafts.length}
           onViewDrafts={() => setShowDraftsModal(true)}
+          autoPayEnabled={autoPayEnabled}
+          onToggleAutoPay={() => setAutoPayEnabled((current) => !current)}
         />
-        <OrderDetailsPanel order={selectedOrder} getOrderTotal={getOrderTotal} />
+        <OrderDetailsPanel
+          order={selectedOrder}
+          getOrderTotal={getOrderTotal}
+          onTogglePayment={handleTogglePayment}
+          onCancelOrder={handleCancelOrder}
+          onCompleteOrder={handleCompleteOrder}
+          actionState={actionState}
+        />
       </main>
 
       <CreateOrderPopup

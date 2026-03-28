@@ -10,6 +10,7 @@ import {
 	Search,
 	Utensils,
 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { formatOrderTime, toTimestampMs } from '../utils/dateTime';
 
 function OrderListCard({ order, isSelected, getOrderTotal }) {
@@ -22,6 +23,9 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 	const itemCount = order.items.reduce((acc, item) => acc + item.quantity, 0);
 	const pendingItems = order.items.filter((item) => item.status !== 'SERVED').length;
 	const total = getOrderTotal(order);
+	const isOpen = order.status === 'OPEN';
+	const isClosed = order.status === 'CLOSED';
+	const isCancelled = order.status === 'CANCELLED';
 
 	let cardClasses = 'bg-white border-gray-200';
 	let textMainColor = 'text-gray-900';
@@ -30,9 +34,13 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 	let TimerIcon = Clock;
 
 	if (isSelected) {
-		if (order.status === 'CLOSED') {
+		if (isClosed) {
 			cardClasses = 'bg-[#F3F4F6] border-green-700 shadow-lg';
 			textSubColor = 'text-gray-500';
+		} else if (isCancelled) {
+			cardClasses = 'bg-red-100 border-red-300 shadow-sm';
+			textMainColor = 'text-red-800';
+			textSubColor = 'text-red-600';
 		} else if (orderAgeMinutes >= 15) {
 			cardClasses = 'bg-red-600 border-red-700 shadow-md shadow-red-200';
 			textMainColor = 'text-white';
@@ -51,7 +59,7 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 			textSubColor = 'text-emerald-50';
 			badgeClass = 'bg-white/20 text-white';
 		}
-	} else if (order.status !== 'CLOSED') {
+	} else if (isOpen) {
 		if (orderAgeMinutes >= 15) {
 			cardClasses = 'bg-red-50 border-red-300 shadow-sm';
 			textSubColor = 'text-red-600';
@@ -67,6 +75,9 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 			textSubColor = 'text-emerald-700';
 			badgeClass = 'bg-emerald-100 text-emerald-700';
 		}
+	} else if (isCancelled) {
+		cardClasses = 'bg-red-50 border-red-200';
+		textSubColor = 'text-red-600';
 	}
 
 	return (
@@ -74,12 +85,15 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 			<div className="flex justify-between items-start mb-2">
 				<div className="flex items-center gap-2">
 					<span className={`text-sm font-bold ${textMainColor}`}>#{orderLabel}</span>
-					{order.status === 'CLOSED' && (
+					{isClosed && (
 						<span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase bg-gray-100 text-gray-600">Closed</span>
+					)}
+					{isCancelled && (
+						<span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase bg-red-100 text-red-600">Cancelled</span>
 					)}
 				</div>
 
-				{order.status === 'CLOSED' ? (
+				{!isOpen ? (
 					<span className={`text-xs ${textSubColor}`}>{formatOrderTime(order.createdAt)}</span>
 				) : (
 					<div className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${badgeClass}`}>
@@ -92,7 +106,7 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 			<div className="flex justify-between items-end">
 				<div className="flex flex-wrap items-center gap-2">
 					<span className={`text-xs ${textSubColor}`}>{itemCount} items</span>
-					{order.status !== 'CLOSED' && pendingItems > 0 && (
+					{isOpen && pendingItems > 0 && (
 						<div className="flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
 							<Utensils size={10} />
 							{pendingItems} Left
@@ -113,7 +127,45 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 	);
 }
 
-function OrdersSidebar({ orders, selectedOrderId, onSelectOrder, getOrderTotal, draftCount = 0, onViewDrafts }) {
+function OrdersSidebar({
+	orders,
+	selectedOrderId,
+	onSelectOrder,
+	getOrderTotal,
+	draftCount = 0,
+	onViewDrafts,
+	autoPayEnabled,
+	onToggleAutoPay,
+}) {
+	const [searchQuery, setSearchQuery] = useState('');
+	const [filterStatus, setFilterStatus] = useState('active');
+
+	const visibleOrders = useMemo(() => {
+		const normalizedSearch = searchQuery.trim().toLowerCase();
+
+		return orders.filter((order) => {
+			if (order.status === 'CANCELLED') {
+				return false;
+			}
+
+			const orderLabel = `${order.tag || ''} ${order.displayId || ''} ${order.id || ''}`.toLowerCase();
+			const matchesSearch = normalizedSearch.length === 0 || orderLabel.includes(normalizedSearch);
+			if (!matchesSearch) {
+				return false;
+			}
+
+			if (filterStatus === 'active') {
+				return order.status === 'OPEN';
+			}
+
+			if (filterStatus === 'closed') {
+				return order.status === 'CLOSED';
+			}
+
+			return true;
+		});
+	}, [orders, searchQuery, filterStatus]);
+
 	return (
 		<aside className="w-full lg:w-87.5 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col shrink-0">
 			<div className="px-5 py-4 border-b border-gray-100 bg-white z-10">
@@ -122,8 +174,19 @@ function OrdersSidebar({ orders, selectedOrderId, onSelectOrder, getOrderTotal, 
 						<ReceiptIndianRupeeIcon size={18} className="text-blue-600" />
 						Orders List
 					</h2>
-					<button className="lg:hidden p-2 bg-gray-100 rounded-full">
-						<Menu size={18} />
+					<button
+						onClick={onToggleAutoPay}
+						className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border font-semibold text-xs transition-all cursor-pointer ${
+							autoPayEnabled
+								? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
+								: 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
+						}`}
+						title={autoPayEnabled ? 'Auto pay enabled' : 'Auto pay disabled'}
+					>
+						<div className={`w-8 h-4 rounded-full relative transition-all ${autoPayEnabled ? 'bg-green-500' : 'bg-gray-400'}`}>
+							<div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-all ${autoPayEnabled ? 'right-0.5' : 'left-0.5'}`} />
+						</div>
+						<CreditCard size={14} />
 					</button>
 				</div>
 
@@ -132,15 +195,26 @@ function OrdersSidebar({ orders, selectedOrderId, onSelectOrder, getOrderTotal, 
 					<input
 						type="text"
 						placeholder="Search orders..."
+						value={searchQuery}
+						onChange={(event) => setSearchQuery(event.target.value)}
 						className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium"
-						readOnly
 					/>
 				</div>
 
 				<div className="flex bg-gray-100/50 p-1 rounded-lg">
-					<button className="flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md bg-white text-blue-600 shadow-sm">active</button>
-					<button className="flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md text-gray-500">closed</button>
-					<button className="flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md text-gray-500">all</button>
+					{['active', 'closed', 'all'].map((tab) => (
+						<button
+							key={tab}
+							onClick={() => setFilterStatus(tab)}
+							className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md transition-all ${
+								filterStatus === tab
+									? 'bg-white text-blue-600 shadow-sm'
+									: 'text-gray-500 hover:text-gray-700 hover:bg-white/50 cursor-pointer'
+							}`}
+						>
+							{tab}
+						</button>
+					))}
 				</div>
 
 				{draftCount > 0 && (
@@ -163,7 +237,13 @@ function OrdersSidebar({ orders, selectedOrderId, onSelectOrder, getOrderTotal, 
 			</div>
 
 			<div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 bg-gray-50/30">
-				{orders.map((order) => (
+				{visibleOrders.length === 0 && (
+					<div className="flex flex-col items-center justify-center h-40 text-gray-400 text-sm">
+						<Menu size={24} className="mb-2 opacity-20" />
+						<p>No orders found</p>
+					</div>
+				)}
+				{visibleOrders.map((order) => (
 					<div key={order.id} onClick={() => onSelectOrder?.(order.id)}>
 						<OrderListCard order={order} isSelected={order.id === selectedOrderId} getOrderTotal={getOrderTotal} />
 					</div>

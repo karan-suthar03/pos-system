@@ -3,6 +3,7 @@ package solutions.triniti.core.repository;
 import com.j256.ormlite.dao.Dao;
 import com.j256.ormlite.dao.DaoManager;
 import com.j256.ormlite.stmt.QueryBuilder;
+import com.j256.ormlite.stmt.Where;
 import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.model.Dish;
 import solutions.triniti.core.model.Order;
@@ -124,7 +125,63 @@ public class OrderRepository {
 		}
 	}
 
+	public Order completeOrder(int orderId) {
+		try {
+			Order order = requireOrder(orderId);
+			order.order_status = "CLOSED";
+			orderDao.update(order);
+			return orderDao.queryForId(orderId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to complete order: " + e.getMessage());
+		}
+	}
+
+	public Order cancelOrder(int orderId) {
+		try {
+			Order order = requireOrder(orderId);
+			order.order_status = "CANCELLED";
+			orderDao.update(order);
+			return orderDao.queryForId(orderId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to cancel order: " + e.getMessage());
+		}
+	}
+
+	public Order markOrderPaid(int orderId) {
+		return setOrderPaymentStatus(orderId, true);
+	}
+
+	public Order setOrderPaymentStatus(int orderId, boolean paymentDone) {
+		try {
+			Order order = requireOrder(orderId);
+			order.is_payment_done = paymentDone;
+			orderDao.update(order);
+			return orderDao.queryForId(orderId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to update payment status: " + e.getMessage());
+		}
+	}
+
+	public Order toggleOrderPayment(int orderId) {
+		try {
+			Order order = requireOrder(orderId);
+			order.is_payment_done = !order.is_payment_done;
+			orderDao.update(order);
+			return orderDao.queryForId(orderId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to toggle payment status: " + e.getMessage());
+		}
+	}
+
 	public List<Order> getTodaysOrders() {
+		return getTodaysOrders(true);
+	}
+
+	public List<Order> getTodaysOrders(boolean includeCancelled) {
 		try {
 			long midnightTodayMillis = LocalDate.now()
 				.atStartOfDay(ZoneId.systemDefault())
@@ -132,12 +189,25 @@ public class OrderRepository {
 				.toEpochMilli();
 			
 			QueryBuilder<Order, Integer> queryBuilder = orderDao.queryBuilder();
-			queryBuilder.where().ge("created_at", midnightTodayMillis);
+			Where<Order, Integer> where = queryBuilder.where();
+			where.ge("created_at", midnightTodayMillis);
+			if (!includeCancelled) {
+				where.and().ne("order_status", "CANCELLED");
+			}
 			queryBuilder.orderBy("created_at", false);
 			return queryBuilder.query();
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to get today's orders: " + e.getMessage());
 		}
+	}
+
+	private Order requireOrder(int orderId) throws Exception {
+		Order order = orderDao.queryForId(orderId);
+		if (order == null) {
+			throw new IllegalArgumentException("Order not found for id: " + orderId);
+		}
+
+		return order;
 	}
 }
