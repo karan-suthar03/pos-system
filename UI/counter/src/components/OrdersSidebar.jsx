@@ -10,11 +10,13 @@ import {
 	Search,
 	Utensils,
 } from 'lucide-react';
+import { formatOrderTime, toTimestampMs } from '../utils/dateTime';
 
 function OrderListCard({ order, isSelected, getOrderTotal }) {
+	const createdAtMs = toTimestampMs(order.createdAt);
 	const orderAgeMinutes = Math.max(
 		0,
-		Math.floor((Date.now() - new Date(order.createdAt || Date.now()).getTime()) / 60000),
+		Math.floor((Date.now() - createdAtMs) / 60000),
 	);
 	const orderLabel = order.tag || order.displayId || order.id;
 	const itemCount = order.items.reduce((acc, item) => acc + item.quantity, 0);
@@ -78,7 +80,7 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 				</div>
 
 				{order.status === 'CLOSED' ? (
-					<span className={`text-xs ${textSubColor}`}>25 Mar, 05:30 PM</span>
+					<span className={`text-xs ${textSubColor}`}>{formatOrderTime(order.createdAt)}</span>
 				) : (
 					<div className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${badgeClass}`}>
 						<TimerIcon size={12} />

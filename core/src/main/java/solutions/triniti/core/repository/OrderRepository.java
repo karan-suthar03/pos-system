@@ -8,6 +8,8 @@ import solutions.triniti.core.model.Dish;
 import solutions.triniti.core.model.Order;
 import solutions.triniti.core.model.OrderItem;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 public class OrderRepository {
@@ -119,6 +121,23 @@ public class OrderRepository {
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to get order by ID: " + e.getMessage());
+		}
+	}
+
+	public List<Order> getTodaysOrders() {
+		try {
+			long midnightTodayMillis = LocalDate.now()
+				.atStartOfDay(ZoneId.systemDefault())
+				.toInstant()
+				.toEpochMilli();
+			
+			QueryBuilder<Order, Integer> queryBuilder = orderDao.queryBuilder();
+			queryBuilder.where().ge("created_at", midnightTodayMillis);
+			queryBuilder.orderBy("created_at", false);
+			return queryBuilder.query();
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to get today's orders: " + e.getMessage());
 		}
 	}
 }

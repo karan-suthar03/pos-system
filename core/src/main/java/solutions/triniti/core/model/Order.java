@@ -33,13 +33,13 @@ public class Order {
 
     public JsonObject toJson() {
         JsonObject item = new JsonObject();
-        item.addProperty("order_id", order_id);
-        item.addProperty("display_id", display_id);
-        item.addProperty("order_tag", order_tag);
-        item.addProperty("is_payment_done", is_payment_done);
-        item.addProperty("order_total", order_total);
-        item.addProperty("order_status", order_status);
-        item.addProperty("created_at", created_at);
+        item.addProperty("id", order_id);
+        item.addProperty("orderId", display_id);
+        item.addProperty("tag", order_tag);
+        item.addProperty("paymentDone", is_payment_done);
+        item.addProperty("orderTotal", order_total);
+        item.addProperty("orderStatus", order_status);
+        item.addProperty("createdAt", created_at);
         return item;
     }
 }

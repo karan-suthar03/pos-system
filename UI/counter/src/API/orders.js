@@ -110,9 +110,18 @@ function findOrderIndex(orders, orderId) {
 }
 
 async function getOrders() {
-  await sleep(120);
-  const orders = readOrders();
-  return clone(orders.sort((a, b) => b.id - a.id));
+    if (window.NativeApi?.handleMessage) {
+    try {
+      let result = await handleMessage({
+        type: `${typePrefix}getTodaysOrders`
+      });
+      if (result && result.success && result.data) {
+        return result.data;
+      }
+    } catch (_error) {
+
+    }
+  }
 }
 
 async function createOrder(order) {

@@ -6,6 +6,7 @@ import {
   ShoppingBag,
   Trash2,
 } from 'lucide-react';
+import { formatOrderDateTime } from '../utils/dateTime';
 
 function OrderDetailsPanel({ order, getOrderTotal }) {
   if (!order) {
@@ -32,7 +33,7 @@ function OrderDetailsPanel({ order, getOrderTotal }) {
             </div>
             <div className="flex items-center gap-4 text-sm text-gray-400 font-medium">
               <span className="flex items-center gap-1.5">
-                <Clock size={15} /> 25 Mar 2026, 06:31 PM
+                <Clock size={15} /> {formatOrderDateTime(order.createdAt)}
               </span>
               <span className="w-1 h-1 rounded-full bg-gray-300" />
               <span className="flex items-center gap-1.5">

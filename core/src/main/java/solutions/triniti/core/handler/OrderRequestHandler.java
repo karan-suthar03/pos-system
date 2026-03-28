@@ -1,12 +1,17 @@
 package solutions.triniti.core.handler;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+
+import java.util.List;
+
 import solutions.triniti.core.bridge.BridgeMessage;
 import solutions.triniti.core.bridge.BridgeResponse;
 import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.db.migration.CoreDatabaseBootstrap;
 import solutions.triniti.core.model.Order;
+import solutions.triniti.core.model.OrderItem;
 import solutions.triniti.core.repository.OrderRepository;
 
 public class OrderRequestHandler implements RequestHandler {
@@ -77,6 +82,21 @@ public class OrderRequestHandler implements RequestHandler {
             return BridgeResponse.success(requestId, data);
         }
 
+        if ("order.getTodaysOrders".equals(type)) {
+            List<Order> orders = orderRepository.getTodaysOrders();
+            JsonArray ordersArray = new JsonArray();
+            for (Order order : orders){
+                JsonObject orderJson = order.toJson();
+                List<OrderItem> items = orderRepository.listItemsByOrderId(order.order_id);
+                JsonArray itemsArray = new JsonArray();
+                for (OrderItem item : items){
+                    itemsArray.add(item.toJson());
+                }
+                orderJson.add("items", itemsArray);
+                ordersArray.add(orderJson);
+            }
+            return BridgeResponse.success(requestId, ordersArray);
+        }
         return BridgeResponse.error(requestId, "Unknown order request: " + type);
     }
 }

@@ -23,6 +23,7 @@ function App() {
 
   async function fetchOrders() {
     const fetched = await getOrders();
+    console.log('Fetched orders:', fetched);
     setOrders(fetched);
     setSelectedOrderId((currentSelectedId) => {
       if (currentSelectedId && fetched.some((order) => order.id === currentSelectedId)) {
