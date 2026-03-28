@@ -26,7 +26,7 @@ public class Order {
     public String order_status;
 
     @DatabaseField(columnName = "created_at", readOnly = true)
-    public String created_at;
+    public long created_at;
 
     public Order() {
     }

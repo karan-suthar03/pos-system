@@ -139,6 +139,61 @@ public final class CoreMigrations {
                         SqlMigrationSupport.execute(connectionSource, "ALTER TABLE orders ADD COLUMN display_id TEXT");
                     }
                 }
+            },
+            new Migration() {
+                @Override
+                public int version() {
+                    return 5;
+                }
+
+                @Override
+                public String name() {
+                    return "orders_created_at_integer_epoch_ms";
+                }
+
+                @Override
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    if (hasColumnType(connectionSource, "orders", "created_at", "INTEGER")) {
+                        return;
+                    }
+
+                    SqlMigrationSupport.execute(connectionSource, "PRAGMA foreign_keys=OFF");
+                    try {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE orders RENAME TO orders_old");
+
+                        SqlMigrationSupport.execute(
+                            connectionSource,
+                            "CREATE TABLE orders (" +
+                            "order_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            "display_id TEXT, " +
+                            "order_tag TEXT, " +
+                            "is_payment_done INTEGER NOT NULL DEFAULT 0 CHECK (is_payment_done IN (0, 1)), " +
+                            "order_total INTEGER NOT NULL DEFAULT 0 CHECK (order_total >= 0), " +
+                            "order_status TEXT NOT NULL CHECK (" +
+                            "order_status IN ('OPEN', 'CLOSED', 'CANCELLED')), " +
+                            "created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)" +
+                            ")"
+                        );
+
+                        SqlMigrationSupport.execute(
+                            connectionSource,
+                            "INSERT INTO orders(order_id, display_id, order_tag, is_payment_done, order_total, order_status, created_at) " +
+                            "SELECT order_id, display_id, order_tag, is_payment_done, order_total, order_status, " +
+                            "CASE " +
+                            "WHEN created_at IS NULL OR TRIM(CAST(created_at AS TEXT)) = '' THEN CAST(strftime('%s','now') AS INTEGER) * 1000 " +
+                            "WHEN CAST(created_at AS TEXT) GLOB '[0-9]*' THEN " +
+                            "CASE WHEN LENGTH(CAST(created_at AS TEXT)) >= 13 THEN CAST(created_at AS INTEGER) " +
+                            "ELSE CAST(created_at AS INTEGER) * 1000 END " +
+                            "ELSE CAST(strftime('%s', created_at) AS INTEGER) * 1000 " +
+                            "END " +
+                            "FROM orders_old"
+                        );
+
+                        SqlMigrationSupport.execute(connectionSource, "DROP TABLE orders_old");
+                    } finally {
+                        SqlMigrationSupport.execute(connectionSource, "PRAGMA foreign_keys=ON");
+                    }
+                }
             }
         );
     }
@@ -148,6 +203,17 @@ public final class CoreMigrations {
         for (String[] row : rows) {
             if (row.length > 1 && column.equalsIgnoreCase(String.valueOf(row[1]))) {
                 return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasColumnType(ConnectionSource connectionSource, String table, String column, String expectedType) throws Exception {
+        List<String[]> rows = SqlMigrationSupport.queryForRows(connectionSource, "PRAGMA table_info(" + table + ")");
+        for (String[] row : rows) {
+            if (row.length > 2 && column.equalsIgnoreCase(String.valueOf(row[1]))) {
+                String actualType = row[2] == null ? "" : row[2].trim();
+                return expectedType.equalsIgnoreCase(actualType);
             }
         }
         return false;
