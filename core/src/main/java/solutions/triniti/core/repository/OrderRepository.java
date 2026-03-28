@@ -52,7 +52,8 @@ public class OrderRepository {
 
 	public Order createOrder(String tag) throws Exception {
 		Order order = new Order();
-		order.display_id = "0";
+		long todaysOrderCount = countOrdersCreatedToday();
+		order.display_id = String.valueOf(todaysOrderCount + 1);
 		order.order_tag = normalizeTag(tag);
 		order.is_payment_done = false;
 		order.order_total = 0;
@@ -209,5 +210,25 @@ public class OrderRepository {
 		}
 
 		return order;
+	}
+
+	private long countOrdersCreatedToday() throws Exception {
+		long midnightTodayMillis = LocalDate.now()
+			.atStartOfDay(ZoneId.systemDefault())
+			.toInstant()
+			.toEpochMilli();
+		long midnightTomorrowMillis = LocalDate.now()
+			.plusDays(1)
+			.atStartOfDay(ZoneId.systemDefault())
+			.toInstant()
+			.toEpochMilli();
+
+		QueryBuilder<Order, Integer> queryBuilder = orderDao.queryBuilder();
+		queryBuilder.setCountOf(true);
+		queryBuilder.where()
+			.ge("created_at", midnightTodayMillis)
+			.and()
+			.lt("created_at", midnightTomorrowMillis);
+		return orderDao.countOf(queryBuilder.prepare());
 	}
 }
