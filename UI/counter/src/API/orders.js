@@ -1,9 +1,11 @@
 import { MENU_ITEMS } from "../data/menuItems";
+import { handleMessage } from ".";
 
 const STORAGE_KEY = "counter_dummy_orders_v1";
 const DISPLAY_BASE = 101;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+let typePrefix = "order.";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -114,39 +116,16 @@ async function getOrders() {
 }
 
 async function createOrder(order) {
-  await sleep(140);
-  const orders = readOrders();
+  if (window.NativeApi?.handleMessage) {
+    try {
+      await handleMessage({
+        type: `${typePrefix}createOrder`,
+        params: { order },
+      });
+    } catch (_error) {
 
-  const maxId = orders.reduce((max, current) => Math.max(max, Number(current.id) || 0), 0);
-  const newId = maxId + 1;
-  const maxDisplay = orders.reduce(
-    (max, current) => Math.max(max, Number(current.displayId) || DISPLAY_BASE - 1),
-    DISPLAY_BASE - 1,
-  );
-
-  const items = (order.items || []).map((item) => ({
-    id: nextId(),
-    name: item.name,
-    price: Number(item.price),
-    quantity: Number(item.quantity || 1),
-    status: "PENDING",
-  }));
-
-  const newOrder = {
-    id: newId,
-    displayId: maxDisplay + 1,
-    tag: order.tag || "",
-    status: "ACTIVE",
-    items,
-    orderTotal: computeTotal(items),
-    paymentDone: false,
-    createdAt: new Date().toISOString(),
-  };
-
-  orders.push(newOrder);
-  writeOrders(orders);
-
-  return clone(newOrder);
+    }
+  }
 }
 
 async function closeOrder(orderId) {

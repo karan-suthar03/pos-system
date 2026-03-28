@@ -54,7 +54,7 @@ function App() {
 
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) || orders[0] || null;
 
-  function handleOrderCreated(newOrder) {
+  function handleOrderCreated() {
     setShowCreateOrderPopup(false);
     setEditingDraftId(null);
     setDraftToResume(null);
@@ -63,13 +63,7 @@ function App() {
       deleteDraft(editingDraftId);
     }
 
-    if (!newOrder) {
-      fetchOrders();
-      return;
-    }
-
-    setOrders((prev) => [newOrder, ...prev]);
-    setSelectedOrderId(newOrder.id);
+    fetchOrders();
   }
 
   function handleSaveDraft(order, draftId = null) {

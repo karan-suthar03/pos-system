@@ -75,8 +75,80 @@ public final class CoreMigrations {
                         );
                     }
                 }
+            },
+            new Migration() {
+                @Override
+                public int version() {
+                    return 3;
+                }
+
+                @Override
+                public String name() {
+                    return "init_orders";
+                }
+
+                @Override
+                public void apply(Database database) throws Exception {
+                    database.execute(
+                        "CREATE TABLE IF NOT EXISTS orders (" +
+                        "order_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "display_id TEXT, " +
+                        "order_tag TEXT, " +
+                        "is_payment_done INTEGER NOT NULL DEFAULT 0 CHECK (is_payment_done IN (0, 1)), " +
+                        "order_total INTEGER NOT NULL DEFAULT 0 CHECK (order_total >= 0), " +
+                        "order_status TEXT NOT NULL CHECK (" +
+                        "order_status IN ('OPEN', 'CLOSED', 'CANCELLED')), " +
+                        "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP" +
+                        ")"
+                    );
+
+                    database.execute(
+                        "CREATE TABLE IF NOT EXISTS order_items (" +
+                        "order_item_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "order_id INTEGER NOT NULL, " +
+                        "dish_id INTEGER NOT NULL, " +
+                        "quantity INTEGER NOT NULL CHECK (quantity > 0), " +
+                        "dish_name_snapshot TEXT NOT NULL, " +
+                        "price_snapshot INTEGER NOT NULL CHECK (price_snapshot > 0), " +
+                        "item_status TEXT NOT NULL DEFAULT 'PENDING' CHECK (" +
+                        "item_status IN ('PENDING', 'SERVED', 'CANCELLED')" +
+                        "), " +
+                        "FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE, " +
+                        "FOREIGN KEY (dish_id) REFERENCES dishes(id)" +
+                        ")"
+                    );
+                }
+            },
+            new Migration() {
+                @Override
+                public int version() {
+                    return 4;
+                }
+
+                @Override
+                public String name() {
+                    return "add_orders_display_id";
+                }
+
+                @Override
+                public void apply(Database database) throws Exception {
+                    if (!hasColumn(database, "orders", "display_id")) {
+                        database.execute("ALTER TABLE orders ADD COLUMN display_id TEXT");
+                    }
+                }
             }
         );
+    }
+
+    private static boolean hasColumn(Database database, String table, String column) throws Exception {
+        List<Map<String, Object>> rows = database.query("PRAGMA table_info(" + table + ")");
+        for (Map<String, Object> row : rows) {
+            Object name = row.get("name");
+            if (name != null && column.equalsIgnoreCase(String.valueOf(name))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static int toInt(Object value) {

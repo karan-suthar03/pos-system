@@ -15,6 +15,7 @@ export function createCounter() {
 	counter.loadURL('http://localhost:3001/');
 	counter.maximize();
 	counter.show();
+	counter.webContents.openDevTools();
 
 	return counter;
 }

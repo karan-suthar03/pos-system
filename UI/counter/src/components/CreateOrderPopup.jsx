@@ -183,8 +183,8 @@ function CreateOrderPopup({
 
     try {
       setIsSubmitting(true);
-      const created = await createOrder(order);
-      onConfirm?.(created);
+      await createOrder(order);
+      onConfirm?.();
     } catch (_error) {
       setIsSubmitting(false);
     }
