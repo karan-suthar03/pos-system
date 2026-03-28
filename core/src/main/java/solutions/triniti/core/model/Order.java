@@ -28,6 +28,9 @@ public class Order {
     @DatabaseField(columnName = "created_at", readOnly = true)
     public long created_at;
 
+    @DatabaseField(columnName = "updated_at", readOnly = true)
+    public long updated_at;
+
     public Order() {
     }
 
@@ -40,6 +43,7 @@ public class Order {
         item.addProperty("orderTotal", order_total);
         item.addProperty("orderStatus", order_status);
         item.addProperty("createdAt", created_at);
+        item.addProperty("updatedAt", updated_at);
         return item;
     }
 }

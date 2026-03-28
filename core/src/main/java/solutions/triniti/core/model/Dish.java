@@ -22,6 +22,9 @@ public class Dish {
     @DatabaseField(columnName = "is_available")
     public boolean is_available = true;
 
+    @DatabaseField(columnName = "updated_at", readOnly = true)
+    public long updated_at;
+
     public Dish(String name, String category, int price) {
         this.dish_name = name;
         this.category = category;
@@ -38,6 +41,7 @@ public class Dish {
         item.addProperty("name", dish_name);
         item.addProperty("price",price);
         item.addProperty("category", category);
+        item.addProperty("updatedAt", updated_at);
         return item;
     }
 }

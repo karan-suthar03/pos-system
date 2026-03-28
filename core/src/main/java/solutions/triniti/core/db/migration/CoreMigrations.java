@@ -194,6 +194,201 @@ public final class CoreMigrations {
                         SqlMigrationSupport.execute(connectionSource, "PRAGMA foreign_keys=ON");
                     }
                 }
+            },
+            new Migration() {
+                @Override
+                public int version() {
+                    return 6;
+                }
+
+                @Override
+                public String name() {
+                    return "orders_add_updated_at_integer_epoch_ms";
+                }
+
+                @Override
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    if (hasColumnType(connectionSource, "orders", "updated_at", "INTEGER")) {
+                        return;
+                    }
+
+                    SqlMigrationSupport.execute(connectionSource, "PRAGMA foreign_keys=OFF");
+                    try {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE orders RENAME TO orders_before_updated_at");
+
+                        SqlMigrationSupport.execute(
+                            connectionSource,
+                            "CREATE TABLE orders (" +
+                            "order_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            "display_id TEXT, " +
+                            "order_tag TEXT, " +
+                            "is_payment_done INTEGER NOT NULL DEFAULT 0 CHECK (is_payment_done IN (0, 1)), " +
+                            "order_total INTEGER NOT NULL DEFAULT 0 CHECK (order_total >= 0), " +
+                            "order_status TEXT NOT NULL CHECK (" +
+                            "order_status IN ('OPEN', 'CLOSED', 'CANCELLED')), " +
+                            "created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000), " +
+                            "updated_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)" +
+                            ")"
+                        );
+
+                        SqlMigrationSupport.execute(
+                            connectionSource,
+                            "INSERT INTO orders(order_id, display_id, order_tag, is_payment_done, order_total, order_status, created_at, updated_at) " +
+                            "SELECT order_id, display_id, order_tag, is_payment_done, order_total, order_status, created_at, created_at " +
+                            "FROM orders_before_updated_at"
+                        );
+
+                        SqlMigrationSupport.execute(connectionSource, "DROP TABLE orders_before_updated_at");
+                    } finally {
+                        SqlMigrationSupport.execute(connectionSource, "PRAGMA foreign_keys=ON");
+                    }
+                }
+            },
+            new Migration() {
+                @Override
+                public int version() {
+                    return 7;
+                }
+
+                @Override
+                public String name() {
+                    return "orders_updated_at_trigger";
+                }
+
+                @Override
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_orders_set_updated_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_orders_set_updated_at " +
+                        "AFTER UPDATE ON orders " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.updated_at = OLD.updated_at " +
+                        "BEGIN " +
+                        "UPDATE orders " +
+                        "SET updated_at = (CAST(strftime('%s','now') AS INTEGER) * 1000) " +
+                        "WHERE order_id = OLD.order_id; " +
+                        "END"
+                    );
+                }
+            },
+            new Migration() {
+                @Override
+                public int version() {
+                    return 8;
+                }
+
+                @Override
+                public String name() {
+                    return "dishes_and_order_items_add_updated_at";
+                }
+
+                @Override
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    SqlMigrationSupport.execute(connectionSource, "PRAGMA foreign_keys=OFF");
+                    try {
+                        if (!hasColumnType(connectionSource, "dishes", "updated_at", "INTEGER")) {
+                            SqlMigrationSupport.execute(connectionSource, "ALTER TABLE dishes RENAME TO dishes_before_updated_at");
+
+                            SqlMigrationSupport.execute(
+                                connectionSource,
+                                "CREATE TABLE dishes (" +
+                                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                                "name TEXT NOT NULL, " +
+                                "category TEXT NOT NULL DEFAULT '', " +
+                                "price INTEGER NOT NULL DEFAULT 0, " +
+                                "is_available INTEGER NOT NULL DEFAULT 1, " +
+                                "updated_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)" +
+                                ")"
+                            );
+
+                            SqlMigrationSupport.execute(
+                                connectionSource,
+                                "INSERT INTO dishes(id, name, category, price, is_available, updated_at) " +
+                                "SELECT id, name, category, price, is_available, (CAST(strftime('%s','now') AS INTEGER) * 1000) " +
+                                "FROM dishes_before_updated_at"
+                            );
+
+                            SqlMigrationSupport.execute(connectionSource, "DROP TABLE dishes_before_updated_at");
+                        }
+
+                        if (!hasColumnType(connectionSource, "order_items", "updated_at", "INTEGER")) {
+                            SqlMigrationSupport.execute(connectionSource, "ALTER TABLE order_items RENAME TO order_items_before_updated_at");
+
+                            SqlMigrationSupport.execute(
+                                connectionSource,
+                                "CREATE TABLE order_items (" +
+                                "order_item_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                                "order_id INTEGER NOT NULL, " +
+                                "dish_id INTEGER NOT NULL, " +
+                                "quantity INTEGER NOT NULL CHECK (quantity > 0), " +
+                                "dish_name_snapshot TEXT NOT NULL, " +
+                                "price_snapshot INTEGER NOT NULL CHECK (price_snapshot > 0), " +
+                                "item_status TEXT NOT NULL DEFAULT 'PENDING' CHECK (" +
+                                "item_status IN ('PENDING', 'SERVED', 'CANCELLED')" +
+                                "), " +
+                                "updated_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000), " +
+                                "FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE, " +
+                                "FOREIGN KEY (dish_id) REFERENCES dishes(id)" +
+                                ")"
+                            );
+
+                            SqlMigrationSupport.execute(
+                                connectionSource,
+                                "INSERT INTO order_items(order_item_id, order_id, dish_id, quantity, dish_name_snapshot, price_snapshot, item_status, updated_at) " +
+                                "SELECT order_item_id, order_id, dish_id, quantity, dish_name_snapshot, price_snapshot, item_status, " +
+                                "(CAST(strftime('%s','now') AS INTEGER) * 1000) " +
+                                "FROM order_items_before_updated_at"
+                            );
+
+                            SqlMigrationSupport.execute(connectionSource, "DROP TABLE order_items_before_updated_at");
+                        }
+                    } finally {
+                        SqlMigrationSupport.execute(connectionSource, "PRAGMA foreign_keys=ON");
+                    }
+                }
+            },
+            new Migration() {
+                @Override
+                public int version() {
+                    return 9;
+                }
+
+                @Override
+                public String name() {
+                    return "dishes_and_order_items_updated_at_triggers";
+                }
+
+                @Override
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_dishes_set_updated_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_dishes_set_updated_at " +
+                        "AFTER UPDATE ON dishes " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.updated_at = OLD.updated_at " +
+                        "BEGIN " +
+                        "UPDATE dishes " +
+                        "SET updated_at = (CAST(strftime('%s','now') AS INTEGER) * 1000) " +
+                        "WHERE id = OLD.id; " +
+                        "END"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_order_items_set_updated_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_order_items_set_updated_at " +
+                        "AFTER UPDATE ON order_items " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.updated_at = OLD.updated_at " +
+                        "BEGIN " +
+                        "UPDATE order_items " +
+                        "SET updated_at = (CAST(strftime('%s','now') AS INTEGER) * 1000) " +
+                        "WHERE order_item_id = OLD.order_item_id; " +
+                        "END"
+                    );
+                }
             }
         );
     }
