@@ -5,7 +5,7 @@ export default function App() {
     }
   }
 
-  handleClick('counter')
+  // handleClick('admin')
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen bg-white font-sans antialiased text-slate-900 selection:bg-indigo-100">
       

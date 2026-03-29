@@ -4,6 +4,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createLauncher } from './launcher/index.js';
+import { createAdmin } from './admin/index.js';
 import { createCounter } from './counter/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -112,12 +113,7 @@ function openAdmin() {
     return;
   }
 
-  adminWin = new BrowserWindow({
-    title: "Admin Dashboard",
-    webPreferences: { preload: path.join(__dirname, 'preload.js') }
-  });
-  
-  adminWin.loadFile('admin.html');
+  adminWin = createAdmin();
   
   adminWin.on('closed', () => { adminWin = null; });
 }

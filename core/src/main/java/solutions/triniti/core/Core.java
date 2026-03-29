@@ -7,6 +7,7 @@ import solutions.triniti.core.bridge.BridgeMessage;
 import solutions.triniti.core.bridge.BridgeRequest;
 import solutions.triniti.core.bridge.BridgeResponse;
 import solutions.triniti.core.db.OrmLiteConnectionProvider;
+import solutions.triniti.core.handler.AnalyticsRequestHandler;
 import solutions.triniti.core.handler.DishRequestHandler;
 import solutions.triniti.core.handler.OrderRequestHandler;
 import solutions.triniti.core.handler.PrintRequestHandler;
@@ -27,6 +28,7 @@ public class Core {
     public Core(OrmLiteConnectionProvider ormLiteConnectionProvider) {
         this.ormLiteConnectionProvider = ormLiteConnectionProvider;
         this.handlers = Arrays.asList(
+            new AnalyticsRequestHandler(ormLiteConnectionProvider),
             new DishRequestHandler(ormLiteConnectionProvider),
             new OrderRequestHandler(ormLiteConnectionProvider),
             new PrintRequestHandler()
