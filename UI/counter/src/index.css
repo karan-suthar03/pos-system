@@ -1,1 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
+
+:root {
+	--counter-bg: #f8fafc;
+	--counter-fg: #0f172a;
+	--counter-border: #dbe4f0;
+	--counter-track: #e2e8f0;
+	--counter-thumb: #94a3b8;
+}
+
+body {
+	font-family: 'Manrope', 'Segoe UI', sans-serif;
+	color: var(--counter-fg);
+	background:
+		radial-gradient(circle at 8% 8%, rgba(217, 119, 6, 0.08), transparent 28%),
+		radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.08), transparent 26%),
+		var(--counter-bg);
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-display {
+	font-family: 'Sora', 'Manrope', sans-serif;
+}
+
+.custom-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: var(--counter-thumb) var(--counter-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+	width: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+	background: var(--counter-track);
+	border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+	background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
+	border: 2px solid var(--counter-track);
+	border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: linear-gradient(180deg, #64748b 0%, #475569 100%);
+}

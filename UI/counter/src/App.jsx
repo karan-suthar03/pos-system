@@ -175,7 +175,13 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 flex flex-col font-sans text-slate-900">
+    <div className="relative min-h-screen bg-slate-50/30 font-sans text-slate-900 flex flex-col selection:bg-amber-100">
+      {/* Subtle Background Glows (matching Launcher) */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none fixed -z-10">
+        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-amber-50/80 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-emerald-50/80 rounded-full blur-[120px]" />
+      </div>
+
       <CounterHeader />
       <StatsBar
         stats={stats}
@@ -186,7 +192,7 @@ function App() {
         }}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex flex-col lg:flex-row w-full flex-1 gap-6 h-[calc(100vh-180px)]">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 w-full flex-1 gap-6 flex flex-col lg:flex-row h-full py-8 mt-4 mb-4 z-10">
         <OrdersSidebar
           orders={orders}
           selectedOrderId={selectedOrder?.id}
@@ -206,6 +212,13 @@ function App() {
           actionState={actionState}
         />
       </main>
+
+      {/* Powered by Triniti Solutions Footer */}
+      <footer className="w-full pb-4 text-center z-10">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 transition-colors hover:text-slate-500 cursor-default">
+          powered by <span className="text-slate-400">triniti solutions</span>
+        </p>
+      </footer>
 
       <CreateOrderPopup
         isOpen={showCreateOrderPopup}

@@ -207,49 +207,52 @@ function CreateOrderPopup({
   }
 
   return (
-    <div className="fixed inset-0 z-80 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-7xl h-[90vh] rounded-2xl shadow-2xl flex overflow-hidden ring-1 ring-black/5 relative">
-        <div className="flex-1 flex flex-col bg-gray-50/60">
-          <div className="px-6 py-4 border-b border-gray-200 bg-white flex items-center gap-4 shrink-0 shadow-sm z-10">
+    <div className="fixed inset-0 z-80 flex items-center justify-center p-3 sm:p-4 bg-slate-950/45 backdrop-blur-md">
+      <div className="relative bg-white/85 backdrop-blur-xl w-full max-w-7xl h-[92vh] rounded-[28px] shadow-[0_30px_80px_-30px_rgba(15,23,42,0.45)] flex flex-col xl:flex-row overflow-hidden ring-1 ring-slate-200/70">
+        <div className="flex-1 flex flex-col bg-slate-50/50 min-h-0">
+          <div className="px-6 py-4 border-b border-slate-200/60 bg-white/70 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 shrink-0 shadow-[0_6px_20px_-16px_rgba(15,23,42,0.28)] z-10">
             <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <UtensilsCrossed size={20} className="text-blue-600" />
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 tracking-tight">
+                <UtensilsCrossed size={20} className="text-slate-700" strokeWidth={2.5} />
                 Menu Categories
               </h2>
+              <p className="text-[11px] uppercase tracking-widest font-semibold text-slate-400 mt-1">
+                Build order with live pricing
+              </p>
             </div>
 
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
                 type="text"
                 placeholder="Search items..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-gray-100 border-transparent focus:bg-white border focus:border-blue-500 rounded-lg transition-all outline-none text-sm font-medium"
+                className="w-full pl-10 pr-4 py-2.5 bg-white/80 border border-slate-200 focus:border-amber-300 focus:ring-4 focus:ring-amber-500/10 rounded-xl transition-all outline-none text-sm font-medium"
               />
             </div>
           </div>
 
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex overflow-hidden min-h-0">
             {activeCategory ? (
-              <div className="w-55 bg-white border-r border-gray-200 overflow-y-auto shrink-0 flex flex-col">
-                <div className="p-2 space-y-1">
+              <div className="w-56 bg-white/70 border-r border-slate-200/60 overflow-y-auto shrink-0 flex flex-col backdrop-blur-xl">
+                <div className="p-3 space-y-1.5">
                   <button
                     onClick={onBackToCategories}
-                    className="w-full text-left px-3 py-3 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-all flex items-center gap-2 mb-2 border border-dashed border-gray-300 hover:border-blue-300 cursor-pointer"
+                    className="w-full text-left px-3 py-3 rounded-xl text-sm font-bold text-slate-600 hover:bg-white hover:text-slate-700 transition-all flex items-center gap-2 mb-2 border border-dashed border-slate-300 hover:border-amber-300 cursor-pointer"
                   >
-                    <ArrowLeft size={16} />
+                    <ArrowLeft size={16} strokeWidth={2.5} />
                     All Categories
                   </button>
-                  <div className="h-px bg-gray-100 my-2 mx-2" />
+                  <div className="h-px bg-slate-200/80 my-2 mx-2" />
                   {categories.map((category) => (
                     <button
                       key={category}
                       onClick={() => onCategorySelect(category)}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-between border-l-4 cursor-pointer ${
+                      className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-between border-l-4 cursor-pointer ${
                         activeCategory === category
-                          ? 'text-blue-700 bg-blue-50 border-blue-600'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-transparent'
+                          ? 'text-slate-800 bg-amber-50/80 border-amber-500 shadow-sm'
+                          : 'text-slate-600 hover:bg-white hover:text-slate-900 border-transparent'
                       }`}
                     >
                       <span className="truncate">{category}</span>
@@ -259,22 +262,22 @@ function CreateOrderPopup({
               </div>
             ) : null}
 
-            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar min-h-0">
               {isLoading ? (
-                <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-500">
-                  <Loader2 size={30} className="animate-spin text-blue-600" />
+                <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-500">
+                  <Loader2 size={30} className="animate-spin text-slate-600" />
                   <p className="text-sm font-medium">Loading menu...</p>
                 </div>
               ) : (
                 isGridView ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {categories.map((category) => (
                       <button
                         key={category}
                         onClick={() => onCategorySelect(category)}
-                        className="group relative h-40 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 hover:border-blue-400 text-left cursor-pointer"
+                        className="group relative h-44 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-slate-200/70 hover:border-amber-300 text-left cursor-pointer"
                       >
-                        <div className="absolute inset-0 bg-gray-200">
+                        <div className="absolute inset-0 bg-slate-200">
                           {CATEGORY_IMAGES[category] ? (
                             <img
                               src={CATEGORY_IMAGES[category]}
@@ -282,16 +285,16 @@ function CreateOrderPopup({
                               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                           ) : (
-                            <div className="w-full h-full bg-linear-to-br from-gray-300 to-gray-400" />
+                            <div className="w-full h-full bg-gradient-to-br from-slate-300 to-slate-400" />
                           )}
-                          <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/20 to-transparent" />
                         </div>
 
                         <div className="absolute bottom-0 left-0 p-4 w-full">
-                          <h3 className="text-lg font-bold text-white leading-tight shadow-black drop-shadow-sm">
+                          <h3 className="text-lg font-bold text-white leading-tight drop-shadow-sm tracking-tight">
                             {category}
                           </h3>
-                          <div className="flex items-center text-blue-100 text-xs mt-1 font-medium">
+                          <div className="flex items-center text-slate-100 text-xs mt-1 font-semibold tracking-wide uppercase">
                             <span>{Array.isArray(allDishes[category]) ? allDishes[category].length : 0} items</span>
                           </div>
                         </div>
@@ -299,30 +302,34 @@ function CreateOrderPopup({
                     ))}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {displayedItems.length === 0 ? (
-                      <div className="col-span-2 text-center py-12 text-gray-400">
-                        <UtensilsCrossed size={40} className="mx-auto mb-2 opacity-30" />
-                        <p className="text-sm">No items found</p>
+                      <div className="col-span-2 text-center py-14 text-slate-400">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 mx-auto mb-3 flex items-center justify-center">
+                          <UtensilsCrossed size={28} className="opacity-70" />
+                        </div>
+                        <p className="text-sm font-medium">No items found</p>
                       </div>
                     ) : (
                       displayedItems.map((item) => (
                         <div
                           key={item.id}
-                          className="flex flex-col text-left p-3 rounded-xl bg-white border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all h-full"
+                          className="flex flex-col text-left p-4 rounded-2xl bg-white/80 border border-slate-200/70 hover:border-amber-300 hover:shadow-md transition-all h-full"
                         >
                           <div className="flex justify-between items-start w-full mb-2 gap-2">
-                            <span className="font-semibold text-gray-800 line-clamp-2 leading-snug">{item.name}</span>
+                            <span className="font-semibold text-slate-800 line-clamp-2 leading-snug">
+                              {item.name}
+                            </span>
                           </div>
-                          <div className="mt-auto pt-2 flex justify-between items-center w-full border-t border-gray-50">
-                            <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                          <div className="mt-auto pt-3 flex justify-between items-center w-full border-t border-slate-100">
+                            <span className="text-sm font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg">
                               ₹{(Number(item.price || 0) / 100).toFixed(2)}
                             </span>
                             <button
                               onClick={() => onSelectMenuItem(item)}
-                              className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors cursor-pointer"
+                              className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center hover:bg-slate-200 transition-colors cursor-pointer"
                             >
-                              <Plus size={16} />
+                              <Plus size={16} strokeWidth={2.8} />
                             </button>
                           </div>
                         </div>
@@ -335,17 +342,17 @@ function CreateOrderPopup({
           </div>
         </div>
 
-        <div className="w-96 shrink-0 bg-white border-l border-gray-200 flex flex-col shadow-xl z-20">
-          <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-white">
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-              <ShoppingBag size={16} />
+        <div className="w-full xl:w-96 shrink-0 bg-white/85 backdrop-blur-xl border-t xl:border-t-0 xl:border-l border-slate-200/60 flex flex-col shadow-[0_10px_30px_-25px_rgba(15,23,42,0.65)] z-20 min-h-[40vh]">
+          <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200/60 bg-white/70">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-[0.16em] flex items-center gap-2">
+              <ShoppingBag size={16} strokeWidth={2.5} />
               Current Order
             </h3>
             <button
               onClick={onClose}
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
             >
-              <X size={18} />
+              <X size={18} strokeWidth={2.5} />
             </button>
           </div>
 
@@ -355,51 +362,51 @@ function CreateOrderPopup({
               value={order.tag}
               onChange={(event) => setOrder((current) => ({ ...current, tag: event.target.value }))}
               placeholder="Table / Customer Name (optional)"
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base font-semibold text-gray-800 outline-none"
+              className="w-full px-4 py-2.5 bg-slate-50/80 border border-slate-200 rounded-xl text-base font-semibold text-slate-800 outline-none focus:bg-white focus:border-amber-300 focus:ring-4 focus:ring-amber-500/10 transition-all"
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar min-h-0">
             {order.items.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-3 opacity-60">
-                <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 opacity-80">
+                <div className="w-14 h-14 bg-slate-100 rounded-2xl border border-slate-200 flex items-center justify-center">
                   <Calculator size={28} />
                 </div>
                 <p className="text-sm font-medium">No items selected</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {order.items.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+                  <div key={item.id} className="rounded-2xl border border-slate-200/70 bg-white/90 px-3.5 py-3 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold text-gray-800">{item.name}</p>
-                        <p className="text-xs text-gray-400">₹{(item.price / 100).toFixed(2)} / unit</p>
+                        <p className="text-sm font-semibold text-slate-800">{item.name}</p>
+                        <p className="text-xs text-slate-400">₹{(item.price / 100).toFixed(2)} / unit</p>
                       </div>
                       <button
                         onClick={() => updateQuantity(item.id, 0)}
-                        className="text-gray-300 hover:text-red-400 transition-colors cursor-pointer"
+                        className="text-slate-300 hover:text-rose-500 transition-colors cursor-pointer"
                       >
-                        <X size={14} />
+                        <X size={14} strokeWidth={2.8} />
                       </button>
                     </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="inline-flex items-center rounded-lg bg-gray-100 border border-gray-200">
+                    <div className="mt-2.5 flex items-center justify-between">
+                      <div className="inline-flex items-center rounded-lg bg-slate-100 border border-slate-200">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="w-7 h-7 text-sm text-gray-600 cursor-pointer"
+                          className="w-7 h-7 text-sm text-slate-600 cursor-pointer"
                         >
                           -
                         </button>
-                        <span className="w-7 text-center text-sm font-bold text-gray-700">{item.quantity}</span>
+                        <span className="w-7 text-center text-sm font-bold text-slate-700">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-7 h-7 text-sm text-gray-600 cursor-pointer"
+                          className="w-7 h-7 text-sm text-slate-600 cursor-pointer"
                         >
                           +
                         </button>
                       </div>
-                      <span className="text-sm font-bold text-gray-800">
+                      <span className="text-sm font-bold text-slate-800 tracking-tight">
                         ₹{((item.quantity * item.price) / 100).toFixed(2)}
                       </span>
                     </div>
@@ -409,19 +416,19 @@ function CreateOrderPopup({
             )}
           </div>
 
-          <div className="p-6 bg-white border-t border-gray-200">
+          <div className="p-6 bg-white/80 border-t border-slate-200/60">
             <div className="flex justify-between items-end mb-4">
-              <span className="text-gray-900 font-bold text-lg">Total</span>
-              <span className="text-3xl font-black text-blue-600 tracking-tight">
+              <span className="text-slate-900 font-bold text-lg tracking-tight">Total</span>
+              <span className="text-3xl font-black text-slate-900 tracking-tight">
                 ₹{(getTotal(order.items) / 100).toFixed(2)}
               </span>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <button
                 onClick={handleSaveDraft}
                 disabled={order.items.length === 0 || isSavingDraft || !onSaveDraft}
-                className="w-full py-3 px-6 rounded-xl flex items-center justify-center gap-2 font-bold text-base transition-all border border-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200 hover:border-gray-400 cursor-pointer"
+                className="w-full py-3 px-6 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all border border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200 bg-slate-100/80 text-slate-700 hover:bg-slate-200/70 hover:border-slate-400 cursor-pointer"
               >
                 {isSavingDraft ? (
                   <>
@@ -430,7 +437,7 @@ function CreateOrderPopup({
                   </>
                 ) : (
                   <>
-                    <Save size={18} />
+                    <Save size={18} strokeWidth={2.5} />
                     <span>{editingDraftId ? 'Update Draft' : 'Save as Draft'}</span>
                   </>
                 )}
@@ -439,7 +446,7 @@ function CreateOrderPopup({
               <button
                 onClick={handlePlaceOrder}
                 disabled={order.items.length === 0 || isSubmitting}
-                className="w-full py-3.5 px-6 rounded-xl flex items-center justify-between group font-bold text-base shadow-lg bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-200 hover:-translate-y-0.5 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                className="w-full py-3.5 px-6 rounded-2xl flex items-center justify-between group font-bold text-sm shadow-[0_12px_24px_-12px_rgba(15,23,42,0.7)] bg-slate-900 text-white hover:bg-slate-800 hover:-translate-y-0.5 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
               >
                 {isSubmitting ? (
                   <div className="w-full flex items-center justify-center gap-2">
@@ -448,7 +455,7 @@ function CreateOrderPopup({
                   </div>
                 ) : (
                   <>
-                    <span>Place Order</span>
+                    <span className="tracking-wide">Place Order</span>
                     <ChevronRight size={20} className="transition-transform duration-200 group-hover:translate-x-1" />
                   </>
                 )}
