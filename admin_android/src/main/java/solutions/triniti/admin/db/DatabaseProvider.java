@@ -43,7 +43,7 @@ public class DatabaseProvider extends ContentProvider {
         }
 
         database = AdminDatabase.get(getContext());
-        core = new Core(database);
+        core = CoreRuntime.get(getContext());
 
         String authority = getContext().getPackageName() + ".provider";
         uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
