@@ -147,7 +147,7 @@ export default function Analytics() {
   }, [showCategoryModal, showDishModal]);
 
   return (
-    <div className="min-h-screen bg-gray-50/50 pb-8 sm:pb-10 font-sans text-slate-900">
+    <div className="min-h-screen bg-transparent pb-8 sm:pb-10 font-sans text-slate-900 relative z-10">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         
         {/* --- CONTROL BAR --- */}

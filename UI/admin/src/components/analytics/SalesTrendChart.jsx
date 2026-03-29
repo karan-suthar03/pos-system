@@ -27,7 +27,7 @@ export default function SalesTrendChart({ data = [] }) {
     }));
   }, [data]);
 
-  const axisTickStyle = { fill: '#9CA3AF', fontSize: 12 };
+  const axisTickStyle = { fill: '#94A3B8', fontSize: 12 };
   
   // Shared X-Axis
   const commonXAxis = (
@@ -42,7 +42,7 @@ export default function SalesTrendChart({ data = [] }) {
     />
   );
 
-  // Shared Left Y-Axis (Revenue) - Blue Label
+  // Shared Left Y-Axis (Revenue)
   const commonYAxisLeft = (
     <YAxis 
       yAxisId="left" 
@@ -54,12 +54,12 @@ export default function SalesTrendChart({ data = [] }) {
         value: 'Revenue (₹)', 
         angle: -90, 
         position: 'insideLeft', 
-        style: { fill: '#3B82F6', fontSize: 12, fontWeight: 'bold' } // Blue color
+        style: { fill: '#D97706', fontSize: 12, fontWeight: 'bold' }
       }}
     />
   );
 
-  // Shared Right Y-Axis (Orders) - Green Label
+  // Shared Right Y-Axis (Orders)
   const commonYAxisRight = (
     <YAxis 
       yAxisId="right" 
@@ -72,14 +72,14 @@ export default function SalesTrendChart({ data = [] }) {
         value: 'Order Volume', 
         angle: 90, 
         position: 'insideRight', 
-        style: { fill: '#10B981', fontSize: 12, fontWeight: 'bold' } // Green color
+        style: { fill: '#10B981', fontSize: 12, fontWeight: 'bold' }
       }}
     />
   );
 
   const commonTooltip = (
     <Tooltip 
-      cursor={{ fill: '#f3f4f6' }}
+      cursor={{ fill: '#f1f5f9' }}
       formatter={(value, name) => {
         if (name === 'Revenue (₹)') {
           return [
@@ -93,11 +93,11 @@ export default function SalesTrendChart({ data = [] }) {
 
         return [value, name];
       }}
-      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
+      contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 28px -18px rgb(15 23 42 / 0.4)', background: 'rgba(255,255,255,0.9)' }} 
     />
   );
   
-  const commonGrid = <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />;
+  const commonGrid = <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />;
 
   // Margin to prevent labels from being cut off
   const chartMargin = { top: 20, right: 8, left: 0, bottom: 0 };
@@ -106,7 +106,7 @@ export default function SalesTrendChart({ data = [] }) {
     // 1. NO DATA
     if (!formattedData || formattedData.length === 0) {
       return (
-        <div className="h-full w-full flex flex-col justify-center items-center text-gray-400">
+        <div className="h-full w-full flex flex-col justify-center items-center text-slate-400">
           <svg className="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
@@ -126,7 +126,7 @@ export default function SalesTrendChart({ data = [] }) {
             {commonYAxisRight}
             {commonTooltip}
             <Legend />
-            <Bar yAxisId="left" dataKey="sales" name="Revenue (₹)" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+            <Bar yAxisId="left" dataKey="sales" name="Revenue (₹)" fill="#D97706" radius={[4, 4, 0, 0]} />
             <Bar yAxisId="right" dataKey="orders" name="Order Count" fill="#10B981" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -139,8 +139,8 @@ export default function SalesTrendChart({ data = [] }) {
         <ComposedChart data={formattedData} margin={chartMargin}>
           <defs>
             <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.2}/>
-              <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+              <stop offset="5%" stopColor="#D97706" stopOpacity={0.2}/>
+              <stop offset="95%" stopColor="#D97706" stopOpacity={0}/>
             </linearGradient>
           </defs>
           {commonGrid}
@@ -154,7 +154,7 @@ export default function SalesTrendChart({ data = [] }) {
             type="linear" 
             dataKey="sales" 
             name="Revenue (₹)" 
-            stroke="#3B82F6" 
+            stroke="#D97706" 
             fillOpacity={1} 
             fill="url(#colorSales)" 
             strokeWidth={3} 
@@ -174,10 +174,10 @@ export default function SalesTrendChart({ data = [] }) {
   };
 
   return (
-    <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
+    <div className="bg-white/75 backdrop-blur-xl p-4 sm:p-6 rounded-2xl border border-slate-200/70 shadow-[0_8px_30px_-20px_rgba(15,23,42,0.3)]">
       <div className="flex justify-between items-center mb-4 sm:mb-6">
         <div>
-          <h3 className="text-base sm:text-lg font-bold text-gray-800">Sales & Order Volume Trends</h3>
+          <h3 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">Sales & Order Volume Trends</h3>
         
         </div>
       </div>

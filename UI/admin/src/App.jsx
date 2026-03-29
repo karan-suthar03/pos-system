@@ -9,25 +9,30 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50/50 flex font-sans text-slate-900">
+      <div className="relative min-h-screen bg-slate-50/30 flex font-sans text-slate-900 selection:bg-amber-100">
+        <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+          <div className="absolute -top-[12%] -left-[12%] w-[42%] h-[42%] bg-amber-50/80 rounded-full blur-[130px]" />
+          <div className="absolute -bottom-[12%] -right-[10%] w-[40%] h-[40%] bg-emerald-50/80 rounded-full blur-[120px]" />
+        </div>
+
         <Sidebar
           isMobileOpen={isMobileSidebarOpen}
           onMobileClose={() => setIsMobileSidebarOpen(false)}
         />
 
         <div className="flex-1 lg:ml-64 min-w-0">
-          <header className="lg:hidden fixed top-0 inset-x-0 z-30 h-16 bg-white/95 backdrop-blur border-b border-gray-200 px-4 flex items-center justify-between">
+          <header className="lg:hidden fixed top-0 inset-x-0 z-30 h-16 bg-white/75 backdrop-blur-xl border-b border-slate-200/60 px-4 flex items-center justify-between shadow-[0_6px_20px_-16px_rgba(15,23,42,0.3)]">
             <div className="flex items-center gap-2">
-              <div className="bg-blue-600 p-1.5 rounded-md">
+              <div className="bg-amber-600 p-1.5 rounded-md shadow-[0_8px_16px_-8px_rgba(217,119,6,0.7)]">
                 <ChefHat className="text-white" size={18} />
               </div>
-              <h1 className="font-bold text-base tracking-tight text-gray-900">RestoAdmin</h1>
+              <h1 className="font-bold text-base tracking-tight text-slate-800">RestoAdmin</h1>
             </div>
 
             <button
               type="button"
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+              className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
               aria-label="Open sidebar"
             >
               <Menu size={20} />

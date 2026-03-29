@@ -1,22 +1,24 @@
 import React from "react";
 import { IndianRupeeIcon, ShoppingBag, TrendingUp, Users } from "lucide-react";
 
-function StatCard({ label, value, subValue, icon: Icon, color, bg }) {
+function StatCard({ label, value, subValue, icon, color, bg }) {
+  const IconComponent = icon;
+
   return (
-    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between min-w-0">
+    <div className="bg-white/75 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-slate-200/70 shadow-[0_8px_30px_-20px_rgba(15,23,42,0.3)] flex flex-col justify-between min-w-0">
       <div className="flex justify-between items-start mb-2">
-        <div className={`p-2.5 rounded-xl ${bg} ${color}`}>
-          <Icon size={20} />
+        <div className={`p-2.5 rounded-xl border border-white/70 ${bg} ${color}`}>
+          <IconComponent size={20} />
         </div>
         {subValue ? (
-          <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
+          <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">
             {subValue}
           </span>
         ) : null}
       </div>
       <div>
-        <h3 className="text-xl sm:text-2xl font-black text-gray-900 break-all sm:break-normal">{value}</h3>
-        <p className="text-sm font-medium text-gray-500">{label}</p>
+        <h3 className="text-xl sm:text-2xl font-black text-slate-900 break-all sm:break-normal tracking-tight">{value}</h3>
+        <p className="text-sm font-medium text-slate-500">{label}</p>
       </div>
     </div>
   );
@@ -36,22 +38,22 @@ export default function KPICards({ data }) {
         label="Total Revenue" 
         value={`₹${(totalRevenue / 100).toFixed(2)}`}
         icon={IndianRupeeIcon} 
-        bg="bg-green-50" 
-        color="text-green-600" 
+        bg="bg-emerald-50" 
+        color="text-emerald-600" 
       />
       <StatCard 
         label="Total Orders" 
         value={`${totalOrders}`} 
         icon={ShoppingBag} 
-        bg="bg-blue-50" 
-        color="text-blue-600" 
+        bg="bg-amber-50" 
+        color="text-amber-600" 
       />
       <StatCard 
         label="Avg Order Value" 
         value={`₹${(averageOrderValue / 100).toFixed(2)}`}
         icon={TrendingUp} 
-        bg="bg-purple-50" 
-        color="text-purple-600" 
+        bg="bg-slate-100" 
+        color="text-slate-700" 
       />
       <StatCard 
         label="Avg Items/Order" 

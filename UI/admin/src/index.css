@@ -1,1 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
+
+:root {
+	--admin-bg: #f8fafc;
+	--admin-fg: #0f172a;
+	--admin-track: #e2e8f0;
+	--admin-thumb: #94a3b8;
+}
+
+body {
+	font-family: 'Manrope', 'Segoe UI', sans-serif;
+	color: var(--admin-fg);
+	background:
+		radial-gradient(circle at 10% 8%, rgba(217, 119, 6, 0.08), transparent 30%),
+		radial-gradient(circle at 88% 84%, rgba(16, 185, 129, 0.07), transparent 30%),
+		var(--admin-bg);
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-display {
+	font-family: 'Sora', 'Manrope', sans-serif;
+}
+
+.custom-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: var(--admin-thumb) var(--admin-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+	width: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+	background: var(--admin-track);
+	border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+	background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
+	border: 2px solid var(--admin-track);
+	border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: linear-gradient(180deg, #64748b 0%, #475569 100%);
+}
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+.animate-fade-in {
+	animation: fade-in 180ms ease-out;
+}

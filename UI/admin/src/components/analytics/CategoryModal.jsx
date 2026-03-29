@@ -5,14 +5,14 @@ function DetailModal({ isOpen, onClose, title, children }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-[0_28px_70px_-28px_rgba(15,23,42,0.5)] border border-slate-200/70 w-full max-w-4xl max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         {/* Modal Header */}
-        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <h3 className="text-base sm:text-lg font-bold text-gray-800">{title}</h3>
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-200/70 flex justify-between items-center bg-white/70">
+          <h3 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">{title}</h3>
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500"
+            className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
           >
             <X size={20} />
           </button>
@@ -72,32 +72,32 @@ export default function CategoryModal({ isOpen, onClose, range }) {
       <div className="overflow-x-auto -mx-1 px-1">
       <table className="w-full min-w-[520px] text-left border-collapse">
         <thead>
-          <tr className="bg-gray-50 text-xs font-bold text-gray-500 uppercase">
+          <tr className="bg-slate-100/70 text-xs font-bold text-slate-500 uppercase">
             <th className="p-3 rounded-tl-lg">Category Name</th>
             <th className="p-3 text-right">Quantity Sold</th>
             <th className="p-3 text-right rounded-tr-lg">Total Revenue</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-slate-100">
           {loading && (
             <tr>
-              <td colSpan="3" className="p-8 text-center text-gray-500">
+              <td colSpan="3" className="p-8 text-center text-slate-500">
                 Loading category data...
               </td>
             </tr>
           )}
           {!loading && data.length === 0 && (
             <tr>
-              <td colSpan="3" className="p-8 text-center text-gray-500">
+              <td colSpan="3" className="p-8 text-center text-slate-500">
                 No data available for this range.
               </td>
             </tr>
           )}
           {!loading && data.map((cat, idx) => (
-            <tr key={idx} className="hover:bg-gray-50 transition-colors">
-              <td className="p-3 text-sm font-bold text-gray-800">{cat.name}</td>
-              <td className="p-3 text-sm text-gray-600 text-right">{cat.quantity} items</td>
-              <td className="p-3 text-sm font-black text-gray-900 text-right">₹{(cat.sales / 100).toLocaleString()}</td>
+            <tr key={idx} className="hover:bg-slate-50 transition-colors">
+              <td className="p-3 text-sm font-bold text-slate-800">{cat.name}</td>
+              <td className="p-3 text-sm text-slate-600 text-right">{cat.quantity} items</td>
+              <td className="p-3 text-sm font-black text-slate-900 text-right">₹{(cat.sales / 100).toLocaleString()}</td>
             </tr>
           ))}
         </tbody>
