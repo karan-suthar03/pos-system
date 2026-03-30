@@ -3,6 +3,8 @@ import { Menu, ChefHat } from 'lucide-react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import Sidebar from './components/Sidebar.jsx';
 import Analytics from './pages/Analytics.jsx';
+import Orders from './pages/Orders.jsx';
+import OrderDetailPage from './pages/OrderDetailPage.jsx';
 
 function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -43,6 +45,8 @@ function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/analytics" replace />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/orders" element={<Orders />} />
+              <Route path="/orders/:orderId" element={<OrderDetailPage />} />
               <Route path="*" element={<Navigate to="/analytics" replace />} />
             </Routes>
           </main>

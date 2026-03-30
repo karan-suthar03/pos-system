@@ -9,7 +9,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String COUNTER_URL = "http://10.126.18.21:3001/";
+    private static final String COUNTER_URL = "http://10.224.69.21:3001/";
 
     private WebView webView;
     private NativeApiBridge nativeApiBridge;

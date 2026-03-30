@@ -12,6 +12,7 @@ import solutions.triniti.core.model.OrderItem;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Locale;
 
 public class OrderRepository {
 	private final Dao<Order, Integer> orderDao;
@@ -77,6 +78,9 @@ public class OrderRepository {
 
 	public void addOrderItem(int orderId, int dishId, int quantity) {
 		try {
+			requireOrder(orderId);
+			validateQuantity(quantity);
+
 			Dish dish = dishRepository.getById(dishId);
 			if (dish == null) {
 				throw new IllegalArgumentException("Dish not found for id: " + dishId);
@@ -93,6 +97,17 @@ public class OrderRepository {
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to add order item: " + e.getMessage());
+		}
+	}
+
+	public Order addItemToOrder(int orderId, int dishId, int quantity) {
+		try {
+			addOrderItem(orderId, dishId, quantity);
+			updateOrderTotal(orderId);
+			return orderDao.queryForId(orderId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to add item to order: " + e.getMessage());
 		}
 	}
 
@@ -178,6 +193,71 @@ public class OrderRepository {
 		}
 	}
 
+	public Order setOrderStatus(int orderId, String status) {
+		try {
+			Order order = requireOrder(orderId);
+			order.order_status = normalizeOrderStatus(status);
+			orderDao.update(order);
+			return orderDao.queryForId(orderId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to update order status: " + e.getMessage());
+		}
+	}
+
+	public Order updateOrderTag(int orderId, String tag) {
+		try {
+			Order order = requireOrder(orderId);
+			order.order_tag = normalizeTag(tag);
+			orderDao.update(order);
+			return orderDao.queryForId(orderId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to update order tag: " + e.getMessage());
+		}
+	}
+
+	public Order updateOrderItemQuantity(int orderId, int orderItemId, int quantity) {
+		try {
+			requireOrder(orderId);
+			validateQuantity(quantity);
+			OrderItem item = requireOrderItemForOrder(orderId, orderItemId);
+			item.quantity = quantity;
+			orderItemDao.update(item);
+			updateOrderTotal(orderId);
+			return orderDao.queryForId(orderId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to update order item quantity: " + e.getMessage());
+		}
+	}
+
+	public Order updateOrderItemStatus(int orderId, int orderItemId, String status) {
+		try {
+			requireOrder(orderId);
+			OrderItem item = requireOrderItemForOrder(orderId, orderItemId);
+			item.item_status = normalizeItemStatus(status);
+			orderItemDao.update(item);
+			return orderDao.queryForId(orderId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to update order item status: " + e.getMessage());
+		}
+	}
+
+	public Order removeOrderItem(int orderId, int orderItemId) {
+		try {
+			requireOrder(orderId);
+			requireOrderItemForOrder(orderId, orderItemId);
+			orderItemDao.deleteById(orderItemId);
+			updateOrderTotal(orderId);
+			return orderDao.queryForId(orderId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to remove order item: " + e.getMessage());
+		}
+	}
+
 	public List<Order> getTodaysOrders() {
 		return getTodaysOrders(true);
 	}
@@ -210,6 +290,49 @@ public class OrderRepository {
 		}
 
 		return order;
+	}
+
+	private OrderItem requireOrderItemForOrder(int orderId, int orderItemId) throws Exception {
+		OrderItem item = orderItemDao.queryForId(orderItemId);
+		if (item == null) {
+			throw new IllegalArgumentException("Order item not found for id: " + orderItemId);
+		}
+
+		if (item.order_id != orderId) {
+			throw new IllegalArgumentException("Order item does not belong to order: " + orderItemId);
+		}
+
+		return item;
+	}
+
+	private void validateQuantity(int quantity) {
+		if (quantity <= 0) {
+			throw new IllegalArgumentException("Quantity must be greater than zero");
+		}
+	}
+
+	private String normalizeOrderStatus(String status) {
+		String normalized = status == null ? "" : status.trim().toUpperCase(Locale.US);
+		switch (normalized) {
+			case "OPEN":
+			case "CLOSED":
+			case "CANCELLED":
+				return normalized;
+			default:
+				throw new IllegalArgumentException("Invalid order status: " + status);
+		}
+	}
+
+	private String normalizeItemStatus(String status) {
+		String normalized = status == null ? "" : status.trim().toUpperCase(Locale.US);
+		switch (normalized) {
+			case "PENDING":
+			case "SERVED":
+			case "CANCELLED":
+				return normalized;
+			default:
+				throw new IllegalArgumentException("Invalid order item status: " + status);
+		}
 	}
 
 	private long countOrdersCreatedToday() throws Exception {

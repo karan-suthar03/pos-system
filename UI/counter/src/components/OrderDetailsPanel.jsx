@@ -8,6 +8,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { formatOrderDateTime } from '../utils/dateTime';
 
 function OrderDetailsPanel({
@@ -164,48 +165,51 @@ function OrderDetailsPanel({
         </div>
       </div>
 
-      {confirmAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
-          <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-[0_24px_70px_-24px_rgba(15,23,42,0.5)] border border-slate-200/70 w-full max-w-sm overflow-hidden transform transition-all scale-100">
-            <div className="p-6 text-center">
-              <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${confirmAction === 'complete' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}
-              >
-                {confirmAction === 'complete' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2 tracking-tight">
-                {confirmAction === 'complete' ? 'Complete Order?' : 'Cancel Order?'}
-              </h3>
-              <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-                {confirmAction === 'complete'
-                  ? 'This will mark the order as closed.'
-                  : 'This will mark the order as cancelled.'}
-              </p>
+      {confirmAction && typeof document !== 'undefined'
+        ? createPortal(
+            <div className="fixed inset-0 z-140 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
+              <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-[0_24px_70px_-24px_rgba(15,23,42,0.5)] border border-slate-200/70 w-full max-w-sm overflow-hidden transform transition-all scale-100">
+                <div className="p-6 text-center">
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${confirmAction === 'complete' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}
+                  >
+                    {confirmAction === 'complete' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2 tracking-tight">
+                    {confirmAction === 'complete' ? 'Complete Order?' : 'Cancel Order?'}
+                  </h3>
+                  <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                    {confirmAction === 'complete'
+                      ? 'This will mark the order as closed.'
+                      : 'This will mark the order as cancelled.'}
+                  </p>
 
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setConfirmAction(null)}
-                  disabled={isCancelBusy || isCompleteBusy}
-                  className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleConfirmAction}
-                  disabled={isCancelBusy || isCompleteBusy}
-                  className={`px-4 py-2 text-white rounded-xl font-medium shadow-md transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
-                    confirmAction === 'complete'
-                      ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'
-                      : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
-                  }`}
-                >
-                  Confirm
-                </button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setConfirmAction(null)}
+                      disabled={isCancelBusy || isCompleteBusy}
+                      className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleConfirmAction}
+                      disabled={isCancelBusy || isCompleteBusy}
+                      className={`px-4 py-2 text-white rounded-xl font-medium shadow-md transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                        confirmAction === 'complete'
+                          ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'
+                          : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
+                      }`}
+                    >
+                      Confirm
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </div>,
+            document.body,
+          )
+        : null}
     </section>
   );
 }

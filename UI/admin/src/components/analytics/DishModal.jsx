@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { getDishPerformance } from "../../API/analytics";
 
 function DetailModal({ isOpen, onClose, title, children }) {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm animate-fade-in">
+  const modalContent = (
+    <div className="fixed inset-0 z-140 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm animate-fade-in">
       <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-[0_28px_70px_-28px_rgba(15,23,42,0.5)] border border-slate-200/70 w-full max-w-4xl max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         {/* Modal Header */}
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-200/70 flex justify-between items-center bg-white/70">
@@ -26,6 +27,8 @@ function DetailModal({ isOpen, onClose, title, children }) {
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }
 
 export default function DishModal({ isOpen, onClose, dishFilter, range }) {
