@@ -272,8 +272,11 @@ public class OrderRepository {
 			QueryBuilder<Order, Integer> queryBuilder = orderDao.queryBuilder();
 			Where<Order, Integer> where = queryBuilder.where();
 			where.ge("created_at", midnightTodayMillis);
+			where.eq("order_status", "OPEN");
+			where.or(2);
 			if (!includeCancelled) {
-				where.and().ne("order_status", "CANCELLED");
+				where.ne("order_status", "CANCELLED");
+				where.and(2);
 			}
 			queryBuilder.orderBy("created_at", false);
 			return queryBuilder.query();
