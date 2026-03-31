@@ -25,8 +25,14 @@ public class Dish {
     @DatabaseField(columnName = "is_available")
     public boolean is_available = true;
 
+    @DatabaseField(columnName = "created_at", readOnly = true)
+    public long created_at;
+
     @DatabaseField(columnName = "updated_at", readOnly = true)
     public long updated_at;
+
+    @DatabaseField(columnName = "deleted_at")
+    public Long deleted_at;
 
     public Dish(String name, String category, int price) {
         this.dish_name = name;
@@ -46,7 +52,13 @@ public class Dish {
         item.addProperty("category", category);
         item.addProperty("categoryId", category_id);
         item.addProperty("isAvailable", is_available);
+        item.addProperty("createdAt", created_at);
         item.addProperty("updatedAt", updated_at);
+        if (deleted_at == null || deleted_at <= 0) {
+            item.add("deletedAt", null);
+        } else {
+            item.addProperty("deletedAt", deleted_at);
+        }
         return item;
     }
 }

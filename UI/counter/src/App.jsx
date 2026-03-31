@@ -53,7 +53,7 @@ function App() {
       if (currentSelectedId && visibleOrders.some((order) => order.id === currentSelectedId)) {
         return currentSelectedId;
       }
-      return visibleOrders[0]?.id ?? null;
+      return null;
     });
   }
 
@@ -87,9 +87,7 @@ function App() {
   );
 
   const selectedOrder =
-    visibleOrders.find((order) => order.id === selectedOrderId) ||
-    visibleOrders[0] ||
-    null;
+    visibleOrders.find((order) => order.id === selectedOrderId) || null;
 
   function handleOrderCreated() {
     setShowCreateOrderPopup(false);
@@ -198,7 +196,7 @@ function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 w-full flex-1 gap-6 flex flex-col lg:flex-row h-full py-8 mt-4 mb-4 z-10">
         <OrdersSidebar
           orders={orders}
-          selectedOrderId={selectedOrder?.id}
+          selectedOrderId={selectedOrderId}
           onSelectOrder={setSelectedOrderId}
           getOrderTotal={getOrderTotal}
           draftCount={drafts.length}

@@ -2,6 +2,7 @@ package solutions.triniti.core.repository;
 
 import com.j256.ormlite.dao.Dao;
 import com.j256.ormlite.dao.DaoManager;
+import com.j256.ormlite.stmt.QueryBuilder;
 import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.db.migration.CoreDatabaseBootstrap;
 import solutions.triniti.core.model.Dish;
@@ -37,13 +38,25 @@ public class DishRepository {
     }
 
     public List<Dish> listAll() throws Exception {
-        return dishDao.queryBuilder()
-            .orderBy("name", true)
-            .query();
+        QueryBuilder<Dish, Integer> queryBuilder = dishDao.queryBuilder();
+        queryBuilder.where().isNull("deleted_at");
+        queryBuilder.orderBy("name", true);
+        return queryBuilder.query();
     }
 
     public Dish getById(long id) throws Exception {
-        return dishDao.queryForId((int) id);
+        if (id <= 0) {
+            return null;
+        }
+
+        List<Dish> matches = dishDao.queryBuilder()
+            .where()
+            .eq("id", (int) id)
+            .and()
+            .isNull("deleted_at")
+            .query();
+
+        return matches.isEmpty() ? null : matches.get(0);
     }
 
     public int create(String name, String category, int price, boolean isAvailable) throws Exception {
@@ -93,7 +106,7 @@ public class DishRepository {
     public int updatePrice(long id, int price) throws Exception {
         validatePrice(price);
 
-        Dish dish = dishDao.queryForId((int) id);
+        Dish dish = getById(id);
         if (dish == null) {
             return 0;
         }
@@ -104,7 +117,7 @@ public class DishRepository {
     public int updateCategory(long id, String category) throws Exception {
         validateCategory(category);
 
-        Dish dish = dishDao.queryForId((int) id);
+        Dish dish = getById(id);
         if (dish == null) {
             return 0;
         }
@@ -118,7 +131,7 @@ public class DishRepository {
         validateCategory(category);
         validatePrice(price);
 
-        Dish dish = dishDao.queryForId((int) id);
+        Dish dish = getById(id);
         if (dish == null) {
             return null;
         }
@@ -133,7 +146,7 @@ public class DishRepository {
     }
 
     public int setAvailability(long id, boolean isAvailable) throws Exception {
-        Dish dish = dishDao.queryForId((int) id);
+        Dish dish = getById(id);
         if (dish == null) {
             return 0;
         }
@@ -142,7 +155,14 @@ public class DishRepository {
     }
 
     public int delete(long id) throws Exception {
-        return dishDao.deleteById((int) id);
+        Dish dish = getById(id);
+        if (dish == null) {
+            return 0;
+        }
+
+        dish.is_available = false;
+        dish.deleted_at = System.currentTimeMillis();
+        return dishDao.update(dish);
     }
 
     private void validateName(String name) {

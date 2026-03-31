@@ -16,8 +16,14 @@ public class Category {
     @DatabaseField(columnName = "image_path")
     public String image_path;
 
+    @DatabaseField(columnName = "created_at", readOnly = true)
+    public long created_at;
+
     @DatabaseField(columnName = "updated_at", readOnly = true)
     public long updated_at;
+
+    @DatabaseField(columnName = "deleted_at")
+    public Long deleted_at;
 
     public Category() {
     }
@@ -31,7 +37,13 @@ public class Category {
         } else {
             payload.addProperty("imagePath", image_path);
         }
+        payload.addProperty("createdAt", created_at);
         payload.addProperty("updatedAt", updated_at);
+        if (deleted_at == null || deleted_at <= 0) {
+            payload.add("deletedAt", null);
+        } else {
+            payload.addProperty("deletedAt", deleted_at);
+        }
         return payload;
     }
 }

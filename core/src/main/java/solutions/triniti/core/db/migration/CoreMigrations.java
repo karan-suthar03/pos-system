@@ -451,6 +451,174 @@ public final class CoreMigrations {
                         "END"
                     );
                 }
+            },
+            new Migration() {
+                @Override
+                public int version() {
+                    return 11;
+                }
+
+                @Override
+                public String name() {
+                    return "sync_columns_add_created_deleted";
+                }
+
+                @Override
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    String nowExpr = "(CAST(strftime('%s','now') AS INTEGER) * 1000)";
+
+                    if (!hasColumn(connectionSource, "orders", "created_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE orders ADD COLUMN created_at INTEGER");
+                    }
+
+                    if (!hasColumn(connectionSource, "orders", "updated_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE orders ADD COLUMN updated_at INTEGER");
+                    }
+
+                    if (!hasColumn(connectionSource, "orders", "deleted_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE orders ADD COLUMN deleted_at INTEGER");
+                    }
+
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "UPDATE orders SET created_at = COALESCE(created_at, updated_at, " + nowExpr + ") " +
+                        "WHERE created_at IS NULL OR created_at <= 0"
+                    );
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "UPDATE orders SET updated_at = COALESCE(updated_at, created_at, " + nowExpr + ") " +
+                        "WHERE updated_at IS NULL OR updated_at <= 0"
+                    );
+
+                    if (!hasColumn(connectionSource, "dishes", "created_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE dishes ADD COLUMN created_at INTEGER");
+                    }
+
+                    if (!hasColumn(connectionSource, "dishes", "updated_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE dishes ADD COLUMN updated_at INTEGER");
+                    }
+
+                    if (!hasColumn(connectionSource, "dishes", "deleted_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE dishes ADD COLUMN deleted_at INTEGER");
+                    }
+
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "UPDATE dishes SET created_at = COALESCE(created_at, updated_at, " + nowExpr + ") " +
+                        "WHERE created_at IS NULL OR created_at <= 0"
+                    );
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "UPDATE dishes SET updated_at = COALESCE(updated_at, created_at, " + nowExpr + ") " +
+                        "WHERE updated_at IS NULL OR updated_at <= 0"
+                    );
+
+                    if (!hasColumn(connectionSource, "order_items", "created_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE order_items ADD COLUMN created_at INTEGER");
+                    }
+
+                    if (!hasColumn(connectionSource, "order_items", "updated_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE order_items ADD COLUMN updated_at INTEGER");
+                    }
+
+                    if (!hasColumn(connectionSource, "order_items", "deleted_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE order_items ADD COLUMN deleted_at INTEGER");
+                    }
+
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "UPDATE order_items SET created_at = COALESCE(created_at, updated_at, " + nowExpr + ") " +
+                        "WHERE created_at IS NULL OR created_at <= 0"
+                    );
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "UPDATE order_items SET updated_at = COALESCE(updated_at, created_at, " + nowExpr + ") " +
+                        "WHERE updated_at IS NULL OR updated_at <= 0"
+                    );
+
+                    if (!hasColumn(connectionSource, "categories", "created_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE categories ADD COLUMN created_at INTEGER");
+                    }
+
+                    if (!hasColumn(connectionSource, "categories", "updated_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE categories ADD COLUMN updated_at INTEGER");
+                    }
+
+                    if (!hasColumn(connectionSource, "categories", "deleted_at")) {
+                        SqlMigrationSupport.execute(connectionSource, "ALTER TABLE categories ADD COLUMN deleted_at INTEGER");
+                    }
+
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "UPDATE categories SET created_at = COALESCE(created_at, updated_at, " + nowExpr + ") " +
+                        "WHERE created_at IS NULL OR created_at <= 0"
+                    );
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "UPDATE categories SET updated_at = COALESCE(updated_at, created_at, " + nowExpr + ") " +
+                        "WHERE updated_at IS NULL OR updated_at <= 0"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_orders_set_created_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_orders_set_created_at " +
+                        "AFTER INSERT ON orders " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 OR NEW.updated_at IS NULL OR NEW.updated_at <= 0 " +
+                        "BEGIN " +
+                        "UPDATE orders " +
+                        "SET created_at = CASE WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 THEN " + nowExpr + " ELSE NEW.created_at END, " +
+                        "updated_at = CASE WHEN NEW.updated_at IS NULL OR NEW.updated_at <= 0 THEN " + nowExpr + " ELSE NEW.updated_at END " +
+                        "WHERE order_id = NEW.order_id; " +
+                        "END"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_dishes_set_created_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_dishes_set_created_at " +
+                        "AFTER INSERT ON dishes " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 OR NEW.updated_at IS NULL OR NEW.updated_at <= 0 " +
+                        "BEGIN " +
+                        "UPDATE dishes " +
+                        "SET created_at = CASE WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 THEN " + nowExpr + " ELSE NEW.created_at END, " +
+                        "updated_at = CASE WHEN NEW.updated_at IS NULL OR NEW.updated_at <= 0 THEN " + nowExpr + " ELSE NEW.updated_at END " +
+                        "WHERE id = NEW.id; " +
+                        "END"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_order_items_set_created_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_order_items_set_created_at " +
+                        "AFTER INSERT ON order_items " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 OR NEW.updated_at IS NULL OR NEW.updated_at <= 0 " +
+                        "BEGIN " +
+                        "UPDATE order_items " +
+                        "SET created_at = CASE WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 THEN " + nowExpr + " ELSE NEW.created_at END, " +
+                        "updated_at = CASE WHEN NEW.updated_at IS NULL OR NEW.updated_at <= 0 THEN " + nowExpr + " ELSE NEW.updated_at END " +
+                        "WHERE order_item_id = NEW.order_item_id; " +
+                        "END"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_categories_set_created_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_categories_set_created_at " +
+                        "AFTER INSERT ON categories " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 OR NEW.updated_at IS NULL OR NEW.updated_at <= 0 " +
+                        "BEGIN " +
+                        "UPDATE categories " +
+                        "SET created_at = CASE WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 THEN " + nowExpr + " ELSE NEW.created_at END, " +
+                        "updated_at = CASE WHEN NEW.updated_at IS NULL OR NEW.updated_at <= 0 THEN " + nowExpr + " ELSE NEW.updated_at END " +
+                        "WHERE id = NEW.id; " +
+                        "END"
+                    );
+                }
             }
         );
     }

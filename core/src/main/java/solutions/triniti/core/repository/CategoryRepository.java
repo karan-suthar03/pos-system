@@ -2,6 +2,7 @@ package solutions.triniti.core.repository;
 
 import com.j256.ormlite.dao.Dao;
 import com.j256.ormlite.dao.DaoManager;
+import com.j256.ormlite.stmt.QueryBuilder;
 import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.model.Category;
 
@@ -27,35 +28,37 @@ public class CategoryRepository {
     }
 
     public List<Category> listAll() throws Exception {
-        return categoryDao.queryBuilder()
-            .orderBy("name", true)
-            .query();
+        QueryBuilder<Category, Integer> queryBuilder = categoryDao.queryBuilder();
+        queryBuilder.where().isNull("deleted_at");
+        queryBuilder.orderBy("name", true);
+        return queryBuilder.query();
     }
 
     public Category getById(int id) throws Exception {
         if (id <= 0) {
             return null;
         }
-        return categoryDao.queryForId(id);
-    }
-
-    public Category getByName(String name) throws Exception {
-        String normalized = normalizeName(name);
-        if (normalized == null) {
-            return null;
-        }
-
         List<Category> matches = categoryDao.queryBuilder()
             .where()
-            .eq("name", normalized)
+            .eq("id", id)
+            .and()
+            .isNull("deleted_at")
             .query();
 
         return matches.isEmpty() ? null : matches.get(0);
     }
 
+    public Category getByName(String name) throws Exception {
+        return findByName(name, false);
+    }
+
     public int getOrCreateId(String name) throws Exception {
-        Category existing = getByName(name);
+        Category existing = findByName(name, true);
         if (existing != null) {
+            if (existing.deleted_at != null && existing.deleted_at > 0) {
+                existing.deleted_at = null;
+                categoryDao.update(existing);
+            }
             return existing.category_id;
         }
 
@@ -71,13 +74,17 @@ public class CategoryRepository {
             throw new IllegalArgumentException("Category name is required");
         }
 
-        Category category = getByName(normalized);
+        Category category = findByName(normalized, true);
         if (category == null) {
             category = new Category();
             category.name = normalized;
             category.image_path = normalizeImagePath(imagePath, clearImage);
             categoryDao.create(category);
             return category;
+        }
+
+        if (category.deleted_at != null && category.deleted_at > 0) {
+            category.deleted_at = null;
         }
 
         if (clearImage || imagePath != null) {
@@ -100,6 +107,23 @@ public class CategoryRepository {
         }
 
         return category;
+    }
+
+    private Category findByName(String name, boolean includeDeleted) throws Exception {
+        String normalized = normalizeName(name);
+        if (normalized == null) {
+            return null;
+        }
+
+        QueryBuilder<Category, Integer> queryBuilder = categoryDao.queryBuilder();
+        com.j256.ormlite.stmt.Where<Category, Integer> where = queryBuilder.where();
+        where.eq("name", normalized);
+        if (!includeDeleted) {
+            where.and().isNull("deleted_at");
+        }
+
+        List<Category> matches = queryBuilder.query();
+        return matches.isEmpty() ? null : matches.get(0);
     }
 
     private String normalizeName(String name) {

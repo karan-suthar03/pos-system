@@ -31,6 +31,9 @@ public class Order {
     @DatabaseField(columnName = "updated_at", readOnly = true)
     public long updated_at;
 
+    @DatabaseField(columnName = "deleted_at")
+    public Long deleted_at;
+
     public Order() {
     }
 
@@ -44,6 +47,11 @@ public class Order {
         item.addProperty("orderStatus", order_status);
         item.addProperty("createdAt", created_at);
         item.addProperty("updatedAt", updated_at);
+        if (deleted_at == null || deleted_at <= 0) {
+            item.add("deletedAt", null);
+        } else {
+            item.addProperty("deletedAt", deleted_at);
+        }
         return item;
     }
 }

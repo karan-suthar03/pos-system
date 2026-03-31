@@ -39,14 +39,18 @@ public class OrderRepository {
 	}
 
 	public List<Order> listAll() throws Exception {
-		return orderDao.queryBuilder()
-			.orderBy("order_id", false)
-			.query();
+		QueryBuilder<Order, Integer> queryBuilder = orderDao.queryBuilder();
+		queryBuilder.where().isNull("deleted_at");
+		queryBuilder.orderBy("order_id", false);
+		return queryBuilder.query();
 	}
 
 	public List<OrderItem> listItemsByOrderId(long orderId) throws Exception {
 		QueryBuilder<OrderItem, Integer> queryBuilder = orderItemDao.queryBuilder();
-		queryBuilder.where().eq("order_id", orderId);
+		queryBuilder.where()
+			.eq("order_id", orderId)
+			.and()
+			.isNull("deleted_at");
 		queryBuilder.orderBy("order_item_id", true);
 		return queryBuilder.query();
 	}
@@ -60,7 +64,7 @@ public class OrderRepository {
 		order.order_total = 0;
 		order.order_status = "OPEN";
 		orderDao.create(order);
-		return orderDao.queryForId(order.order_id);
+		return getOrderById(order.order_id);
 	}
 
 	private String normalizeTag(String tag) {
@@ -104,7 +108,7 @@ public class OrderRepository {
 		try {
 			addOrderItem(orderId, dishId, quantity);
 			updateOrderTotal(orderId);
-			return orderDao.queryForId(orderId);
+			return getOrderById(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to add item to order: " + e.getMessage());
@@ -121,7 +125,7 @@ public class OrderRepository {
 				}
 			}
 
-			Order order = orderDao.queryForId(orderId);
+			Order order = getOrderById(orderId);
 			if (order == null) {
 				throw new IllegalArgumentException("Order not found for id: " + orderId);
 			}
@@ -136,7 +140,13 @@ public class OrderRepository {
 
 	public Order getOrderById(int orderId) {
 		try {
-			return orderDao.queryForId(orderId);
+			List<Order> matches = orderDao.queryBuilder()
+				.where()
+				.eq("order_id", orderId)
+				.and()
+				.isNull("deleted_at")
+				.query();
+			return matches.isEmpty() ? null : matches.get(0);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to get order by ID: " + e.getMessage());
@@ -146,9 +156,17 @@ public class OrderRepository {
 	public Order completeOrder(int orderId) {
 		try {
 			Order order = requireOrder(orderId);
+			List<OrderItem> items = listItemsByOrderId(orderId);
+			for (OrderItem item : items) {
+				if (!"CANCELLED".equals(item.item_status) && !"SERVED".equals(item.item_status)) {
+					item.item_status = "SERVED";
+					orderItemDao.update(item);
+				}
+			}
+			updateOrderTotal(orderId);
 			order.order_status = "CLOSED";
 			orderDao.update(order);
-			return orderDao.queryForId(orderId);
+			return getOrderById(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to complete order: " + e.getMessage());
@@ -160,7 +178,7 @@ public class OrderRepository {
 			Order order = requireOrder(orderId);
 			order.order_status = "CANCELLED";
 			orderDao.update(order);
-			return orderDao.queryForId(orderId);
+			return getOrderById(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to cancel order: " + e.getMessage());
@@ -176,7 +194,7 @@ public class OrderRepository {
 			Order order = requireOrder(orderId);
 			order.is_payment_done = paymentDone;
 			orderDao.update(order);
-			return orderDao.queryForId(orderId);
+			return getOrderById(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to update payment status: " + e.getMessage());
@@ -188,7 +206,7 @@ public class OrderRepository {
 			Order order = requireOrder(orderId);
 			order.is_payment_done = !order.is_payment_done;
 			orderDao.update(order);
-			return orderDao.queryForId(orderId);
+			return getOrderById(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to toggle payment status: " + e.getMessage());
@@ -200,7 +218,7 @@ public class OrderRepository {
 			Order order = requireOrder(orderId);
 			order.order_status = normalizeOrderStatus(status);
 			orderDao.update(order);
-			return orderDao.queryForId(orderId);
+			return getOrderById(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to update order status: " + e.getMessage());
@@ -212,7 +230,7 @@ public class OrderRepository {
 			Order order = requireOrder(orderId);
 			order.order_tag = normalizeTag(tag);
 			orderDao.update(order);
-			return orderDao.queryForId(orderId);
+			return getOrderById(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to update order tag: " + e.getMessage());
@@ -227,7 +245,7 @@ public class OrderRepository {
 			item.quantity = quantity;
 			orderItemDao.update(item);
 			updateOrderTotal(orderId);
-			return orderDao.queryForId(orderId);
+			return getOrderById(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to update order item quantity: " + e.getMessage());
@@ -240,7 +258,7 @@ public class OrderRepository {
 			OrderItem item = requireOrderItemForOrder(orderId, orderItemId);
 			item.item_status = normalizeItemStatus(status);
 			orderItemDao.update(item);
-			return orderDao.queryForId(orderId);
+			return getOrderById(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to update order item status: " + e.getMessage());
@@ -250,10 +268,12 @@ public class OrderRepository {
 	public Order removeOrderItem(int orderId, int orderItemId) {
 		try {
 			requireOrder(orderId);
-			requireOrderItemForOrder(orderId, orderItemId);
-			orderItemDao.deleteById(orderItemId);
+			OrderItem item = requireOrderItemForOrder(orderId, orderItemId);
+			item.item_status = "CANCELLED";
+			item.deleted_at = System.currentTimeMillis();
+			orderItemDao.update(item);
 			updateOrderTotal(orderId);
-			return orderDao.queryForId(orderId);
+			return getOrderById(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to remove order item: " + e.getMessage());
@@ -281,7 +301,9 @@ public class OrderRepository {
 				where.and(2);
 			}
 			queryBuilder.orderBy("created_at", false);
-			return queryBuilder.query();
+			List<Order> orders = queryBuilder.query();
+			orders.removeIf(order -> order != null && order.deleted_at != null && order.deleted_at > 0);
+			return orders;
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to get today's orders: " + e.getMessage());
@@ -289,7 +311,7 @@ public class OrderRepository {
 	}
 
 	private Order requireOrder(int orderId) throws Exception {
-		Order order = orderDao.queryForId(orderId);
+		Order order = getOrderById(orderId);
 		if (order == null) {
 			throw new IllegalArgumentException("Order not found for id: " + orderId);
 		}
@@ -298,7 +320,12 @@ public class OrderRepository {
 	}
 
 	private OrderItem requireOrderItemForOrder(int orderId, int orderItemId) throws Exception {
-		OrderItem item = orderItemDao.queryForId(orderItemId);
+		OrderItem item = orderItemDao.queryBuilder()
+			.where()
+			.eq("order_item_id", orderItemId)
+			.and()
+			.isNull("deleted_at")
+			.queryForFirst();
 		if (item == null) {
 			throw new IllegalArgumentException("Order item not found for id: " + orderItemId);
 		}
@@ -356,7 +383,9 @@ public class OrderRepository {
 		queryBuilder.where()
 			.ge("created_at", midnightTodayMillis)
 			.and()
-			.lt("created_at", midnightTomorrowMillis);
+			.lt("created_at", midnightTomorrowMillis)
+			.and()
+			.isNull("deleted_at");
 		return orderDao.countOf(queryBuilder.prepare());
 	}
 }
