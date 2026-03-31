@@ -1,5 +1,5 @@
 // main.js
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, protocol } from 'electron';
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -10,11 +10,24 @@ import { createCounter } from './counter/index.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'storage',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
+]);
+
 let adminWin = null;
 let counterWin = null;
 let javaProcess = null;
 let javaStdoutBuffer = '';
 const pendingNativeRequests = new Map();
+const storageRoot = path.resolve(__dirname, 'storage');
 
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -23,6 +36,7 @@ if (!gotTheLock) {
 } else {
   app.on('second-instance', () => createLauncher());
   app.whenReady().then(() => {
+    registerStorageProtocol();
     startJavaBridge();
     createLauncher();
   });
@@ -35,8 +49,9 @@ function startJavaBridge() {
 
   const javaPath = "C:\\Program Files\\Android\\Android Studio\\jbr\\bin\\java.exe";
   const jarPath = path.resolve(__dirname, 'core.jar');
+  const dbPath = path.resolve(__dirname, 'pos.db');
 
-  javaProcess = spawn(javaPath, ['-jar', jarPath], {
+  javaProcess = spawn(javaPath, ['-jar', jarPath, dbPath], {
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
@@ -66,6 +81,46 @@ function startJavaBridge() {
     javaProcess = null;
     failAllPendingRequests('JAVA_BRIDGE_START_FAILED', error.message || 'Failed to start Java bridge');
   });
+}
+
+function registerStorageProtocol() {
+  protocol.registerFileProtocol('storage', (request, callback) => {
+    const target = resolveStoragePath(request.url);
+    if (!target) {
+      callback({ error: -6 });
+      return;
+    }
+
+    callback({ path: target });
+  });
+}
+
+function resolveStoragePath(requestUrl) {
+  try {
+    const parsed = new URL(requestUrl);
+    let pathName = parsed.pathname || '';
+    if (!pathName && parsed.hostname) {
+      pathName = parsed.hostname;
+    }
+
+    let decoded = pathName.replace(/^\/+/, '');
+    decoded = decoded.replace(/\+/g, '%20');
+    decoded = decodeURIComponent(decoded);
+    decoded = decoded.replace(/\\/g, '/');
+    if (!decoded) {
+      return null;
+    }
+
+    const root = path.resolve(storageRoot);
+    const target = path.resolve(root, decoded);
+    if (target !== root && !target.startsWith(root + path.sep)) {
+      return null;
+    }
+
+    return target;
+  } catch (_error) {
+    return null;
+  }
 }
 
 function failAllPendingRequests(code, message) {

@@ -17,6 +17,8 @@ import {
   getDishList,
   updateDish,
 } from '../API/dishes.js';
+import { getCategories, setCategoryImage, upsertCategory } from '../API/categories.js';
+import { deleteFile, saveFile } from '../API/storage.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 
 const emptyForm = {
@@ -46,6 +48,123 @@ function normalizePriceInput(value) {
   }
 
   return { raw: normalized, value: parsed };
+}
+
+async function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Failed to read image'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load image'));
+    };
+    img.src = url;
+  });
+}
+
+async function resizeImageFile(file, maxSize = 512, quality = 0.82) {
+  if (!file?.type?.startsWith('image/')) {
+    return file;
+  }
+
+  const image = await loadImageFromFile(file);
+  const largestSide = Math.max(image.width, image.height);
+  if (largestSide <= maxSize) {
+    return file;
+  }
+
+  const scale = maxSize / largestSide;
+  const width = Math.round(image.width * scale);
+  const height = Math.round(image.height * scale);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return file;
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+  if (!blob) {
+    return file;
+  }
+
+  const baseName = file.name.replace(/\.[^/.]+$/, '');
+  return new File([blob], `${baseName || 'category'}.jpg`, { type: 'image/jpeg' });
+}
+
+const imageObjectUrlCache = new Map();
+const imageFetchPromises = new Map();
+
+async function getCachedImageUrl(sourceUrl) {
+  if (!sourceUrl) {
+    return null;
+  }
+
+  if (sourceUrl.startsWith('data:') || sourceUrl.startsWith('blob:')) {
+    return sourceUrl;
+  }
+
+  if (imageObjectUrlCache.has(sourceUrl)) {
+    return imageObjectUrlCache.get(sourceUrl);
+  }
+
+  if (imageFetchPromises.has(sourceUrl)) {
+    return imageFetchPromises.get(sourceUrl);
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      let response = null;
+      const cacheStorage = typeof globalThis !== 'undefined' ? globalThis.caches : undefined;
+
+      if (cacheStorage && typeof cacheStorage.open === 'function') {
+        const cache = await cacheStorage.open('pos-category-images-v1');
+        response = await cache.match(sourceUrl);
+        if (!response) {
+          response = await fetch(sourceUrl, { cache: 'force-cache' });
+          if (response?.ok) {
+            cache.put(sourceUrl, response.clone()).catch(() => {});
+          }
+        }
+      } else {
+        response = await fetch(sourceUrl, { cache: 'force-cache' });
+      }
+
+      if (!response?.ok) {
+        return null;
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      imageObjectUrlCache.set(sourceUrl, objectUrl);
+      return objectUrl;
+    } catch (_error) {
+      return null;
+    } finally {
+      imageFetchPromises.delete(sourceUrl);
+    }
+  })();
+
+  imageFetchPromises.set(sourceUrl, fetchPromise);
+  return fetchPromise;
 }
 
 function SearchableDropdown({
@@ -179,33 +298,60 @@ export default function MenuItemPage() {
 
   const [form, setForm] = useState(emptyForm);
   const [categories, setCategories] = useState([]);
+  const [categoryMap, setCategoryMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(null);
+  const [cachedCategoryImageUrl, setCachedCategoryImageUrl] = useState(null);
+  const [pendingCategoryImage, setPendingCategoryImage] = useState({
+    file: null,
+    previewUrl: null,
+    clear: false,
+  });
+  const [categoryImageState, setCategoryImageState] = useState({
+    isUploading: false,
+    error: '',
+  });
 
   useEffect(() => {
     let isActive = true;
 
     async function loadCategories() {
       try {
-        const list = await getDishList();
+        const [categoryList, dishList] = await Promise.all([
+          getCategories().catch(() => null),
+          getDishList().catch(() => []),
+        ]);
         if (!isActive) {
           return;
         }
 
         const unique = new Set();
-        list.forEach((item) => {
-          if (item.category) {
+        const nextCategoryMap = {};
+
+        (categoryList || []).forEach((category) => {
+          if (!category?.name) {
+            return;
+          }
+          unique.add(category.name);
+          nextCategoryMap[category.name] = category;
+        });
+
+        (dishList || []).forEach((item) => {
+          if (item?.category) {
             unique.add(item.category);
           }
         });
+
         setCategories(Array.from(unique).sort((a, b) => a.localeCompare(b)));
+        setCategoryMap(nextCategoryMap);
       } catch (loadError) {
         console.error('Failed to load categories:', loadError);
         if (isActive) {
           setCategories([]);
+          setCategoryMap({});
         }
       }
     }
@@ -258,6 +404,62 @@ export default function MenuItemPage() {
     }
   }, [form.category, categories]);
 
+  const selectedCategoryName = form.category.trim();
+  const selectedCategory = selectedCategoryName || null;
+  const selectedCategoryInfo = selectedCategory ? categoryMap[selectedCategory] : null;
+  const isCategoryImageDisabled = !selectedCategory || categoryImageState.isUploading;
+  const hasPendingCategoryImageChange = Boolean(
+    pendingCategoryImage.file || pendingCategoryImage.clear,
+  );
+  const stagedCategoryImageUrl = pendingCategoryImage.clear
+    ? null
+    : (pendingCategoryImage.previewUrl
+      || cachedCategoryImageUrl
+      || selectedCategoryInfo?.imageUrl
+      || null);
+
+  useEffect(() => {
+    setCategoryImageState((prev) => ({ ...prev, error: '' }));
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    setPendingCategoryImage({
+      file: null,
+      previewUrl: null,
+      clear: false,
+    });
+  }, [selectedCategory]);
+
+  useEffect(() => () => {
+    if (pendingCategoryImage.previewUrl) {
+      URL.revokeObjectURL(pendingCategoryImage.previewUrl);
+    }
+  }, [pendingCategoryImage.previewUrl]);
+
+  useEffect(() => {
+    let isActive = true;
+    const imageUrl = selectedCategoryInfo?.imageUrl || null;
+
+    setCachedCategoryImageUrl(null);
+
+    if (!imageUrl) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    (async () => {
+      const cachedUrl = await getCachedImageUrl(imageUrl);
+      if (isActive) {
+        setCachedCategoryImageUrl(cachedUrl);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedCategoryInfo?.imageUrl]);
+
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -272,6 +474,118 @@ export default function MenuItemPage() {
       setCategories((prev) => [...prev, value].sort((a, b) => a.localeCompare(b)));
     }
     setForm((prev) => ({ ...prev, category: value }));
+  };
+
+  const handleCategoryImageUpload = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    if (!selectedCategory) {
+      setCategoryImageState({ isUploading: false, error: 'Select a category first.' });
+      return;
+    }
+
+    setCategoryImageState((prev) => ({ ...prev, error: '' }));
+    setNotice(null);
+
+    setPendingCategoryImage({
+      file,
+      previewUrl: URL.createObjectURL(file),
+      clear: false,
+    });
+  };
+
+  const handleRemoveCategoryImage = () => {
+    if (!selectedCategory) {
+      return;
+    }
+
+    setCategoryImageState((prev) => ({ ...prev, error: '' }));
+    setNotice(null);
+
+    setPendingCategoryImage({
+      file: null,
+      previewUrl: null,
+      clear: true,
+    });
+  };
+
+  const handleSaveCategoryImage = async () => {
+    if (!selectedCategory || !hasPendingCategoryImageChange || categoryImageState.isUploading) {
+      return;
+    }
+
+    setCategoryImageState({ isUploading: true, error: '' });
+    setNotice(null);
+
+    let storedPath = null;
+
+    try {
+      const previousPath = selectedCategoryInfo?.imagePath;
+      let updated = null;
+
+      if (pendingCategoryImage.clear) {
+        updated = await setCategoryImage({
+          name: selectedCategory,
+          clearImage: true,
+        });
+
+        if (previousPath) {
+          deleteFile(previousPath).catch(() => {});
+        }
+      } else if (pendingCategoryImage.file) {
+        const preparedFile = await resizeImageFile(pendingCategoryImage.file);
+        const dataUrl = await readFileAsDataUrl(preparedFile);
+        const stored = await saveFile({
+          dataUrl,
+          fileName: preparedFile.name,
+          mimeType: preparedFile.type,
+          folder: 'categories',
+        });
+        storedPath = stored.path;
+
+        updated = await upsertCategory({
+          name: selectedCategory,
+          imagePath: stored.path,
+        });
+
+        if (previousPath && previousPath !== stored.path) {
+          deleteFile(previousPath).catch(() => {});
+        }
+      }
+
+      if (updated) {
+        setCategoryMap((prev) => ({
+          ...prev,
+          [updated.name]: updated,
+        }));
+      }
+
+      setPendingCategoryImage({
+        file: null,
+        previewUrl: null,
+        clear: false,
+      });
+
+      setNotice({
+        type: 'success',
+        message: pendingCategoryImage.clear ? 'Category image removed.' : 'Category image updated.',
+      });
+      setCategoryImageState({ isUploading: false, error: '' });
+    } catch (uploadError) {
+      console.error('Failed to update category image:', uploadError);
+      if (storedPath) {
+        deleteFile(storedPath).catch(() => {});
+      }
+      setCategoryImageState({
+        isUploading: false,
+        error: uploadError?.message || 'Failed to update category image.',
+      });
+    }
   };
 
   const handleAvailabilityToggle = (nextValue) => {
@@ -446,6 +760,77 @@ export default function MenuItemPage() {
                 placeholder="Choose or add a category"
               />
             </label>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Category image</span>
+                {categoryImageState.isUploading && (
+                  <span className="text-xs font-semibold text-amber-600">Uploading...</span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="h-20 w-20 rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center">
+                  {stagedCategoryImageUrl ? (
+                    <img
+                      src={stagedCategoryImageUrl}
+                      alt={selectedCategory}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs text-slate-400 font-semibold">No image</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label
+                    className={`inline-flex items-center justify-center h-9 px-4 rounded-xl border text-xs font-semibold transition-colors ${
+                      isCategoryImageDisabled
+                        ? 'border-slate-200 text-slate-400 cursor-not-allowed'
+                        : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer'
+                    }`}
+                  >
+                    Choose image
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={isCategoryImageDisabled}
+                      onChange={handleCategoryImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {(selectedCategoryInfo?.imagePath || pendingCategoryImage.file || pendingCategoryImage.clear) && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCategoryImage}
+                      disabled={categoryImageState.isUploading}
+                      className="h-9 px-4 rounded-xl border border-rose-200 text-rose-700 bg-rose-50 text-xs font-semibold hover:bg-rose-100 disabled:opacity-60"
+                    >
+                      Clear image
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveCategoryImage}
+                    disabled={isCategoryImageDisabled || !hasPendingCategoryImageChange}
+                    className={`h-9 px-4 rounded-xl border text-xs font-semibold transition-colors ${
+                      isCategoryImageDisabled || !hasPendingCategoryImageChange
+                        ? 'border-slate-200 text-slate-400 cursor-not-allowed'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    }`}
+                  >
+                    Save image
+                  </button>
+                  {pendingCategoryImage.clear && (
+                    <span className="text-xs text-slate-500 font-semibold">
+                      Image will be removed after save.
+                    </span>
+                  )}
+                  {categoryImageState.error && (
+                    <span className="text-xs text-rose-600 font-semibold">{categoryImageState.error}</span>
+                  )}
+                </div>
+              </div>
+              <span className="text-xs text-slate-400">Recommended: square image up to 512px.</span>
+            </div>
 
             <label className="grid gap-2">
               <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Price (INR)</span>

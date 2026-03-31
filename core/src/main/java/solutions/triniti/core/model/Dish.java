@@ -16,6 +16,9 @@ public class Dish {
     @DatabaseField(columnName = "category")
     public String category;
 
+    @DatabaseField(columnName = "category_id")
+    public int category_id;
+
     @DatabaseField(columnName = "price")
     public int price;
 
@@ -41,6 +44,7 @@ public class Dish {
         item.addProperty("name", dish_name);
         item.addProperty("price",price);
         item.addProperty("category", category);
+        item.addProperty("categoryId", category_id);
         item.addProperty("isAvailable", is_available);
         item.addProperty("updatedAt", updated_at);
         return item;

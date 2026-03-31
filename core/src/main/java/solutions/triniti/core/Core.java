@@ -8,10 +8,14 @@ import solutions.triniti.core.bridge.BridgeRequest;
 import solutions.triniti.core.bridge.BridgeResponse;
 import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.handler.AnalyticsRequestHandler;
+import solutions.triniti.core.handler.CategoryRequestHandler;
 import solutions.triniti.core.handler.DishRequestHandler;
 import solutions.triniti.core.handler.OrderRequestHandler;
 import solutions.triniti.core.handler.PrintRequestHandler;
 import solutions.triniti.core.handler.RequestHandler;
+import solutions.triniti.core.handler.StorageRequestHandler;
+import solutions.triniti.core.storage.StorageConfig;
+import solutions.triniti.core.storage.StorageService;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,9 +31,13 @@ public class Core {
 
     public Core(OrmLiteConnectionProvider ormLiteConnectionProvider) {
         this.ormLiteConnectionProvider = ormLiteConnectionProvider;
+        StorageConfig storageConfig = StorageConfig.fromProvider(ormLiteConnectionProvider);
+        StorageService storageService = new StorageService(storageConfig);
         this.handlers = Arrays.asList(
             new AnalyticsRequestHandler(ormLiteConnectionProvider),
             new DishRequestHandler(ormLiteConnectionProvider),
+            new CategoryRequestHandler(ormLiteConnectionProvider, storageService),
+            new StorageRequestHandler(storageService),
             new OrderRequestHandler(ormLiteConnectionProvider),
             new PrintRequestHandler()
         );

@@ -5,6 +5,7 @@ import com.j256.ormlite.dao.DaoManager;
 import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.db.migration.CoreDatabaseBootstrap;
 import solutions.triniti.core.model.Dish;
+import solutions.triniti.core.repository.CategoryRepository;
 
 import java.util.List;
 
@@ -12,12 +13,14 @@ public class DishRepository {
 
     private final OrmLiteConnectionProvider ormLiteConnectionProvider;
     private final Dao<Dish, Integer> dishDao;
+    private final CategoryRepository categoryRepository;
 
     public DishRepository(OrmLiteConnectionProvider ormLiteConnectionProvider) {
         if (ormLiteConnectionProvider == null) {
             throw new IllegalArgumentException("Connection provider cannot be null");
         }
         this.ormLiteConnectionProvider = ormLiteConnectionProvider;
+        this.categoryRepository = new CategoryRepository(ormLiteConnectionProvider);
 
         Dao<Dish, Integer> resolvedDishDao;
         try {
@@ -51,6 +54,7 @@ public class DishRepository {
         Dish dish = new Dish();
         dish.dish_name = name.trim();
         dish.category = category.trim();
+        dish.category_id = resolveCategoryId(dish.category);
         dish.price = price;
         dish.is_available = isAvailable;
         return dishDao.create(dish);
@@ -64,6 +68,7 @@ public class DishRepository {
         Dish dish = new Dish();
         dish.dish_name = name.trim();
         dish.category = category.trim();
+        dish.category_id = resolveCategoryId(dish.category);
         dish.price = price;
         dish.is_available = isAvailable;
         dishDao.create(dish);
@@ -81,6 +86,7 @@ public class DishRepository {
 
         dish.dish_name = dish.dish_name.trim();
         dish.category = dish.category.trim();
+        dish.category_id = resolveCategoryId(dish.category);
         return dishDao.create(dish);
     }
 
@@ -103,6 +109,7 @@ public class DishRepository {
             return 0;
         }
         dish.category = category.trim();
+        dish.category_id = resolveCategoryId(dish.category);
         return dishDao.update(dish);
     }
 
@@ -118,6 +125,7 @@ public class DishRepository {
 
         dish.dish_name = name.trim();
         dish.category = category.trim();
+        dish.category_id = resolveCategoryId(dish.category);
         dish.price = price;
         dish.is_available = isAvailable;
         dishDao.update(dish);
@@ -153,5 +161,9 @@ public class DishRepository {
         if (price < 0) {
             throw new IllegalArgumentException("Dish price must be a non-negative number");
         }
+    }
+
+    private int resolveCategoryId(String category) throws Exception {
+        return categoryRepository.getOrCreateId(category);
     }
 }

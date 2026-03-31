@@ -389,6 +389,68 @@ public final class CoreMigrations {
                         "END"
                     );
                 }
+            },
+            new Migration() {
+                @Override
+                public int version() {
+                    return 10;
+                }
+
+                @Override
+                public String name() {
+                    return "init_categories_and_link_dishes";
+                }
+
+                @Override
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TABLE IF NOT EXISTS categories (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "name TEXT NOT NULL UNIQUE, " +
+                        "image_path TEXT, " +
+                        "updated_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)" +
+                        ")"
+                    );
+
+                    if (!hasColumn(connectionSource, "dishes", "category_id")) {
+                        SqlMigrationSupport.execute(
+                            connectionSource,
+                            "ALTER TABLE dishes ADD COLUMN category_id INTEGER"
+                        );
+                    }
+
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "INSERT OR IGNORE INTO categories(name) " +
+                        "SELECT DISTINCT TRIM(category) " +
+                        "FROM dishes " +
+                        "WHERE category IS NOT NULL AND TRIM(category) <> ''"
+                    );
+
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "UPDATE dishes " +
+                        "SET category_id = (" +
+                        "SELECT id FROM categories WHERE categories.name = dishes.category" +
+                        ") " +
+                        "WHERE category_id IS NULL OR category_id = 0"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_categories_set_updated_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_categories_set_updated_at " +
+                        "AFTER UPDATE ON categories " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.updated_at = OLD.updated_at " +
+                        "BEGIN " +
+                        "UPDATE categories " +
+                        "SET updated_at = (CAST(strftime('%s','now') AS INTEGER) * 1000) " +
+                        "WHERE id = OLD.id; " +
+                        "END"
+                    );
+                }
             }
         );
     }

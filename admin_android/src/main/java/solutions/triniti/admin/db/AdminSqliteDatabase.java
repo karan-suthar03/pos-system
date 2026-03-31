@@ -7,20 +7,24 @@ import android.database.sqlite.SQLiteOpenHelper;
 import com.j256.ormlite.android.AndroidConnectionSource;
 import com.j256.ormlite.support.ConnectionSource;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.db.migration.CoreDatabaseBootstrap;
+import solutions.triniti.core.storage.StorageRootProvider;
 
-public class AdminSqliteDatabase implements OrmLiteConnectionProvider {
+public class AdminSqliteDatabase implements OrmLiteConnectionProvider, StorageRootProvider {
 
     private static final String DB_NAME = "admin.db";
     private static final int DB_VERSION = 1;
 
     private final SQLiteOpenHelper helper;
     private final ConnectionSource connectionSource;
+    private final String storageRootPath;
+    private final String storagePublicUriTemplate;
 
     public AdminSqliteDatabase(Context context) {
         this.helper = new SQLiteOpenHelper(context.getApplicationContext(), DB_NAME, null, DB_VERSION) {
@@ -36,6 +40,10 @@ public class AdminSqliteDatabase implements OrmLiteConnectionProvider {
         };
 
         this.connectionSource = new AndroidConnectionSource(helper.getWritableDatabase());
+
+        File storageRoot = new File(context.getFilesDir(), "storage");
+        this.storageRootPath = storageRoot.getAbsolutePath();
+        this.storagePublicUriTemplate = "storage://local/{path}";
 
         try {
             CoreDatabaseBootstrap.migrate(this);
@@ -83,5 +91,15 @@ public class AdminSqliteDatabase implements OrmLiteConnectionProvider {
     @Override
     public ConnectionSource getConnectionSource() {
         return connectionSource;
+    }
+
+    @Override
+    public String getStorageRootPath() {
+        return storageRootPath;
+    }
+
+    @Override
+    public String getStoragePublicUriTemplate() {
+        return storagePublicUriTemplate;
     }
 }

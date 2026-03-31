@@ -18,6 +18,7 @@ function normalizeDish(rawDish, categoryFallback = 'Other') {
     id: toNumber(rawDish.id ?? rawDish.dish_id),
     name: rawDish.name ?? rawDish.dish_name ?? 'Unnamed dish',
     category: rawDish.category ?? rawDish.dish_category ?? categoryFallback ?? 'Other',
+    categoryId: toNumber(rawDish.categoryId ?? rawDish.category_id),
     price: toNumber(rawDish.price ?? rawDish.dish_price),
     isAvailable: typeof isAvailableValue === 'boolean' ? isAvailableValue : Boolean(isAvailableValue ?? true),
     updatedAt: toNumber(rawDish.updatedAt ?? rawDish.updated_at),

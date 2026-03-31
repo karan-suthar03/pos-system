@@ -13,6 +13,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { getDishes } from '../API/dishes';
 import { createOrder } from '../API/orders';
+import { getCategories } from '../API/categories';
 
 import hotBeverage from '../assets/hotBeverage.png';
 import coldCoffee from '../assets/coldCoffee.png';
@@ -29,7 +30,7 @@ import momo from '../assets/momo.png';
 import extra from '../assets/extra.png';
 import misc from '../assets/misc.png';
 
-const CATEGORY_IMAGES = {
+const DEFAULT_CATEGORY_IMAGES = {
   'Hot Beverage': hotBeverage,
   'Cold Coffee': coldCoffee,
   Refresher: refresher,
@@ -45,6 +46,63 @@ const CATEGORY_IMAGES = {
   Extra: extra,
   Misc: misc,
 };
+
+const imageObjectUrlCache = new Map();
+const imageFetchPromises = new Map();
+
+async function getCachedImageUrl(sourceUrl) {
+  if (!sourceUrl) {
+    return null;
+  }
+
+  if (sourceUrl.startsWith('data:') || sourceUrl.startsWith('blob:')) {
+    return sourceUrl;
+  }
+
+  if (imageObjectUrlCache.has(sourceUrl)) {
+    return imageObjectUrlCache.get(sourceUrl);
+  }
+
+  if (imageFetchPromises.has(sourceUrl)) {
+    return imageFetchPromises.get(sourceUrl);
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      let response = null;
+      const cacheStorage = typeof globalThis !== 'undefined' ? globalThis.caches : undefined;
+
+      if (cacheStorage && typeof cacheStorage.open === 'function') {
+        const cache = await cacheStorage.open('pos-category-images-v1');
+        response = await cache.match(sourceUrl);
+        if (!response) {
+          response = await fetch(sourceUrl, { cache: 'force-cache' });
+          if (response?.ok) {
+            cache.put(sourceUrl, response.clone()).catch(() => {});
+          }
+        }
+      } else {
+        response = await fetch(sourceUrl, { cache: 'force-cache' });
+      }
+
+      if (!response?.ok) {
+        return null;
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      imageObjectUrlCache.set(sourceUrl, objectUrl);
+      return objectUrl;
+    } catch (_error) {
+      return null;
+    } finally {
+      imageFetchPromises.delete(sourceUrl);
+    }
+  })();
+
+  imageFetchPromises.set(sourceUrl, fetchPromise);
+  return fetchPromise;
+}
 
 function getTotal(items) {
   return items.reduce((sum, item) => sum + item.quantity * item.price, 0);
@@ -65,6 +123,8 @@ function CreateOrderPopup({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState(null);
   const [order, setOrder] = useState(initialOrder || { items: [], tag: '' });
+  const [categoryImages, setCategoryImages] = useState({});
+  const [cachedCategoryImages, setCachedCategoryImages] = useState({});
 
   useEffect(() => {
     if (!isOpen) {
@@ -74,8 +134,20 @@ function CreateOrderPopup({
     (async () => {
       try {
         setIsLoading(true);
-        const dishes = await getDishes();
+        const [dishes, categories] = await Promise.all([
+          getDishes(),
+          getCategories(),
+        ]);
+
         setAllDishes(dishes);
+
+        const nextImages = {};
+        (categories || []).forEach((category) => {
+          if (category?.name && category?.imageUrl) {
+            nextImages[category.name] = category.imageUrl;
+          }
+        });
+        setCategoryImages(nextImages);
       } catch (_error) {
         console.error('Failed to fetch dishes:', _error);
       } finally {
@@ -102,7 +174,42 @@ function CreateOrderPopup({
     setOrder(initialOrder || { items: [], tag: '' });
   }, [isOpen, initialOrder]);
 
+  useEffect(() => {
+    let isActive = true;
+    const entries = Object.entries(categoryImages || {});
+
+    if (entries.length === 0) {
+      setCachedCategoryImages({});
+      return () => {
+        isActive = false;
+      };
+    }
+
+    (async () => {
+      const nextImages = {};
+      await Promise.all(entries.map(async ([name, url]) => {
+        const cachedUrl = await getCachedImageUrl(url);
+        if (cachedUrl) {
+          nextImages[name] = cachedUrl;
+        }
+      }));
+
+      if (isActive) {
+        setCachedCategoryImages(nextImages);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [categoryImages]);
+
   const categories = allDishes ? Object.keys(allDishes) : [];
+  const resolvedCategoryImages = useMemo(() => ({
+    ...DEFAULT_CATEGORY_IMAGES,
+    ...categoryImages,
+    ...cachedCategoryImages,
+  }), [categoryImages, cachedCategoryImages]);
   const isGridView = !activeCategory && !searchQuery.trim();
 
   const displayedItems = useMemo(() => {
@@ -278,16 +385,16 @@ function CreateOrderPopup({
                         className="group relative h-44 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-slate-200/70 hover:border-amber-300 text-left cursor-pointer"
                       >
                         <div className="absolute inset-0 bg-slate-200">
-                          {CATEGORY_IMAGES[category] ? (
+                          {resolvedCategoryImages[category] ? (
                             <img
-                              src={CATEGORY_IMAGES[category]}
+                              src={resolvedCategoryImages[category]}
                               alt={category}
                               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-slate-300 to-slate-400" />
+                            <div className="w-full h-full bg-linear-to-br from-slate-300 to-slate-400" />
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/20 to-transparent" />
+                          <div className="absolute inset-0 bg-linear-to-t from-slate-950/85 via-slate-900/20 to-transparent" />
                         </div>
 
                         <div className="absolute bottom-0 left-0 p-4 w-full">

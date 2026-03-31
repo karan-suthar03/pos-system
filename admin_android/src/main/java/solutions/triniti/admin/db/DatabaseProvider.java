@@ -7,6 +7,11 @@ import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.net.URLConnection;
 
 import com.google.gson.Gson;
 
@@ -23,6 +28,7 @@ public class DatabaseProvider extends ContentProvider {
 
     public static final String PATH_QUERY = "query";
     public static final String PATH_EXECUTE = "execute";
+    public static final String PATH_STORAGE = "storage";
     public static final String KEY_SQL = "sql";
     public static final String METHOD_BRIDGE_HANDLE = "bridge.handle";
     public static final String KEY_REQUEST_JSON = "request_json";
@@ -30,6 +36,7 @@ public class DatabaseProvider extends ContentProvider {
 
     private static final int CODE_QUERY = 1;
     private static final int CODE_EXECUTE = 2;
+    private static final int CODE_STORAGE = 3;
 
     private UriMatcher uriMatcher;
     private AdminSqliteDatabase database;
@@ -49,6 +56,7 @@ public class DatabaseProvider extends ContentProvider {
         uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
         uriMatcher.addURI(authority, PATH_QUERY, CODE_QUERY);
         uriMatcher.addURI(authority, PATH_EXECUTE, CODE_EXECUTE);
+        uriMatcher.addURI(authority, PATH_STORAGE, CODE_STORAGE);
 
         return true;
     }
@@ -152,7 +160,43 @@ public class DatabaseProvider extends ContentProvider {
         if (code == CODE_EXECUTE) {
             return "vnd.android.cursor.item/vnd." + getContext().getPackageName() + ".execute";
         }
+        if (code == CODE_STORAGE) {
+            String fileName = getStorageRelativePath(uri);
+            String guessed = fileName == null ? null : URLConnection.guessContentTypeFromName(fileName);
+            return guessed == null ? "application/octet-stream" : guessed;
+        }
         throw new IllegalArgumentException("Unsupported URI: " + uri);
+    }
+
+    @Override
+    public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
+        if (uri == null) {
+            throw new FileNotFoundException("Missing storage uri");
+        }
+
+        String relativePath = getStorageRelativePath(uri);
+        if (relativePath == null || relativePath.trim().isEmpty()) {
+            throw new FileNotFoundException("Missing storage path");
+        }
+
+        String normalized = relativePath.trim().replace('\\', '/');
+        while (normalized.startsWith("/")) {
+            normalized = normalized.substring(1);
+        }
+        if (normalized.contains("..")) {
+            throw new FileNotFoundException("Invalid storage path");
+        }
+
+        File root = new File(database.getStorageRootPath()).getAbsoluteFile();
+        File target = new File(root, normalized).getAbsoluteFile();
+        if (!target.getPath().startsWith(root.getPath())) {
+            throw new FileNotFoundException("Invalid storage path");
+        }
+        if (!target.exists()) {
+            throw new FileNotFoundException("File not found: " + relativePath);
+        }
+
+        return ParcelFileDescriptor.open(target, ParcelFileDescriptor.MODE_READ_ONLY);
     }
 
     private String getSql(Uri uri, String selection, ContentValues values) {
@@ -207,5 +251,34 @@ public class DatabaseProvider extends ContentProvider {
         }
 
         return cursor;
+    }
+
+    private String getStorageRelativePath(Uri uri) {
+        String fromQuery = uri.getQueryParameter("path");
+        if (fromQuery != null && !fromQuery.trim().isEmpty()) {
+            return fromQuery;
+        }
+
+        List<String> segments = uri.getPathSegments();
+        if (segments == null || segments.isEmpty()) {
+            return null;
+        }
+
+        if (!PATH_STORAGE.equals(segments.get(0))) {
+            return null;
+        }
+
+        if (segments.size() <= 1) {
+            return null;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        for (int i = 1; i < segments.size(); i++) {
+            if (builder.length() > 0) {
+                builder.append('/');
+            }
+            builder.append(segments.get(i));
+        }
+        return builder.toString();
     }
 }
