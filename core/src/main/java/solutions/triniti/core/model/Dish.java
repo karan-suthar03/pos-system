@@ -41,6 +41,7 @@ public class Dish {
         item.addProperty("name", dish_name);
         item.addProperty("price",price);
         item.addProperty("category", category);
+        item.addProperty("isAvailable", is_available);
         item.addProperty("updatedAt", updated_at);
         return item;
     }

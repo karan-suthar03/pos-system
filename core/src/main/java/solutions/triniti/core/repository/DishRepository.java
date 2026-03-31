@@ -56,6 +56,20 @@ public class DishRepository {
         return dishDao.create(dish);
     }
 
+    public Dish createAndFetch(String name, String category, int price, boolean isAvailable) throws Exception {
+        validateName(name);
+        validateCategory(category);
+        validatePrice(price);
+
+        Dish dish = new Dish();
+        dish.dish_name = name.trim();
+        dish.category = category.trim();
+        dish.price = price;
+        dish.is_available = isAvailable;
+        dishDao.create(dish);
+        return dish;
+    }
+
     public int create(Dish dish) throws Exception {
         if (dish == null) {
             throw new IllegalArgumentException("Dish cannot be null");
@@ -90,6 +104,24 @@ public class DishRepository {
         }
         dish.category = category.trim();
         return dishDao.update(dish);
+    }
+
+    public Dish updateDish(long id, String name, String category, int price, boolean isAvailable) throws Exception {
+        validateName(name);
+        validateCategory(category);
+        validatePrice(price);
+
+        Dish dish = dishDao.queryForId((int) id);
+        if (dish == null) {
+            return null;
+        }
+
+        dish.dish_name = name.trim();
+        dish.category = category.trim();
+        dish.price = price;
+        dish.is_available = isAvailable;
+        dishDao.update(dish);
+        return dish;
     }
 
     public int setAvailability(long id, boolean isAvailable) throws Exception {

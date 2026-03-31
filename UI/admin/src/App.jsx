@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Menu, ChefHat } from 'lucide-react';
+import { Menu as MenuItem, ChefHat } from 'lucide-react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import Sidebar from './components/Sidebar.jsx';
 import Analytics from './pages/Analytics.jsx';
 import Orders from './pages/Orders.jsx';
 import OrderDetailPage from './pages/OrderDetailPage.jsx';
+import Menu from './pages/Menu.jsx';
+import MenuItemPage from './pages/MenuItemPage.jsx';
 
 function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -37,7 +39,7 @@ function App() {
               className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
               aria-label="Open sidebar"
             >
-              <Menu size={20} />
+              <MenuItem size={20} />
             </button>
           </header>
 
@@ -47,6 +49,8 @@ function App() {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+              <Route path="/menu" element={<Menu />} />
+              <Route path="/menu/item/:id" element={<MenuItemPage />} />
               <Route path="*" element={<Navigate to="/analytics" replace />} />
             </Routes>
           </main>
