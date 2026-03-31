@@ -81,7 +81,10 @@ function OrderDetailsPanel({
               </span>
               <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
               <span className="flex items-center gap-1.5">
-                <ShoppingBag size={15} /> {order.items.reduce((acc, item) => acc + item.quantity, 0)} items
+                <ShoppingBag size={15} /> {order.items.reduce((acc, item) => {
+                  if (item.status === 'CANCELLED') return acc;
+                  return acc + item.quantity;
+                }, 0)} items
               </span>
             </div>
           </div>

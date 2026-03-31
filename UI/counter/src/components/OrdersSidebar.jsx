@@ -20,7 +20,10 @@ function OrderListCard({ order, isSelected, getOrderTotal }) {
 		Math.floor((Date.now() - createdAtMs) / 60000),
 	);
 	const orderLabel = order.tag || order.displayId || order.id;
-	const itemCount = order.items.reduce((acc, item) => acc + item.quantity, 0);
+	const itemCount = order.items.reduce((acc, item) => {
+		if (item.status === 'CANCELLED') return acc;
+		return acc + item.quantity;
+	}, 0);
 	const pendingItems = order.items.filter((item) => item.status !== 'SERVED').length;
 	const total = getOrderTotal(order);
 	const isOpen = order.status === 'OPEN';

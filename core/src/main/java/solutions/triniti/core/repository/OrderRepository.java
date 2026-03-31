@@ -116,7 +116,9 @@ public class OrderRepository {
 			int computedTotal = 0;
 			List<OrderItem> items = listItemsByOrderId(orderId);
 			for (OrderItem item : items) {
-				computedTotal += item.price_snapshot * item.quantity;
+				if (!"CANCELLED".equals(item.item_status)) {
+					computedTotal += item.price_snapshot * item.quantity;
+				}
 			}
 
 			Order order = orderDao.queryForId(orderId);

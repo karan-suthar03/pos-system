@@ -130,6 +130,7 @@ function toDraftItems(items) {
     name: item.name || 'Unnamed item',
     price: Number(item.price || 0),
     quantity: Math.max(1, Number(item.quantity) || 1),
+    status: item.status,
   }));
 }
 
@@ -302,7 +303,10 @@ export default function OrderDetailPage() {
   }, [dishes]);
 
   const totalDraftAmount = useMemo(
-    () => itemDrafts.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0), 0),
+    () => itemDrafts.reduce((sum, item) => {
+      if (item.status === 'CANCELLED') return sum;
+      return sum + (Number(item.price) || 0) * (Number(item.quantity) || 0);
+    }, 0),
     [itemDrafts]
   );
 
@@ -313,7 +317,10 @@ export default function OrderDetailPage() {
   const displayTag = isEditMode ? normalizeTag(tagDraft) : normalizeTag(order?.tag);
 
   const totalItems = useMemo(
-    () => displayItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
+    () => displayItems.reduce((sum, item) => {
+      if (item.status === 'CANCELLED') return sum;
+      return sum + (Number(item.quantity) || 0);
+    }, 0),
     [displayItems]
   );
 

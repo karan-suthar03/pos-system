@@ -14,7 +14,10 @@ import {
 import { useDrafts } from './hooks/useDrafts';
 
 function getOrderTotal(order) {
-  return order.items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  return order.items.reduce((sum, item) => {
+    if (item.status === 'CANCELLED') return sum;
+    return sum + item.quantity * item.price;
+  }, 0);
 }
 
 function App() {
