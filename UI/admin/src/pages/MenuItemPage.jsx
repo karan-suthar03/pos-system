@@ -6,6 +6,8 @@ import {
   ChevronDown,
   ChefHat,
   IndianRupee,
+  Layers,
+  Package,
   Plus,
   Save,
   Trash2,
@@ -18,6 +20,7 @@ import {
   updateDish,
 } from '../API/dishes.js';
 import { getCategories, setCategoryImage, upsertCategory } from '../API/categories.js';
+import { listInventoryItems, listRecipe, setRecipe } from '../API/inventory.js';
 import { deleteFile, saveFile } from '../API/storage.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 
@@ -48,6 +51,29 @@ function normalizePriceInput(value) {
   }
 
   return { raw: normalized, value: parsed };
+}
+
+function normalizeRecipeQuantity(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const parsed = Number.parseFloat(trimmed);
+  if (!Number.isFinite(parsed)) {
+    return trimmed;
+  }
+
+  return String(parsed);
+}
+
+function buildRecipeFingerprint(rows) {
+  const normalized = (rows || []).map((row) => ({
+    inventoryItemId: Number(row?.inventoryItemId) || 0,
+    quantity: normalizeRecipeQuantity(row?.quantity),
+  }));
+
+  return JSON.stringify(normalized);
 }
 
 async function readFileAsDataUrl(file) {
@@ -304,6 +330,13 @@ export default function MenuItemPage() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(null);
+  const [recipeNotice, setRecipeNotice] = useState(null);
+  const [recipeError, setRecipeError] = useState('');
+  const [recipeLoading, setRecipeLoading] = useState(false);
+  const [recipeSaving, setRecipeSaving] = useState(false);
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [recipeRows, setRecipeRows] = useState([]);
+  const [recipeSnapshot, setRecipeSnapshot] = useState(buildRecipeFingerprint([]));
   const [cachedCategoryImageUrl, setCachedCategoryImageUrl] = useState(null);
   const [pendingCategoryImage, setPendingCategoryImage] = useState({
     file: null,
@@ -399,6 +432,72 @@ export default function MenuItemPage() {
   }, [id, isEditMode]);
 
   useEffect(() => {
+    let isActive = true;
+
+    const loadInventoryItems = async () => {
+      try {
+        const items = await listInventoryItems();
+        if (isActive) {
+          setInventoryItems(items || []);
+        }
+      } catch (loadError) {
+        console.error('Failed to load inventory items:', loadError);
+        if (isActive) {
+          setRecipeError('Failed to load inventory items.');
+        }
+      }
+    };
+
+    loadInventoryItems();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isEditMode) {
+      setRecipeRows([]);
+      setRecipeSnapshot(buildRecipeFingerprint([]));
+      return;
+    }
+
+    let isActive = true;
+    setRecipeLoading(true);
+    setRecipeError('');
+    setRecipeNotice(null);
+
+    (async () => {
+      try {
+        const recipe = await listRecipe(id);
+        if (!isActive) {
+          return;
+        }
+        const rows = (recipe || []).map((entry, index) => ({
+          key: entry.id ? `recipe-${entry.id}` : `recipe-${index}`,
+          inventoryItemId: entry.inventoryItemId,
+          quantity: entry.quantity ? String(entry.quantity) : '',
+        }));
+        setRecipeRows(rows);
+        setRecipeSnapshot(buildRecipeFingerprint(rows));
+      } catch (loadError) {
+        console.error('Failed to load recipe:', loadError);
+        if (isActive) {
+          setRecipeError('Failed to load recipe.');
+        }
+      } finally {
+        if (isActive) {
+          setRecipeLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [id, isEditMode]);
+
+  useEffect(() => {
     if (form.category && !categories.includes(form.category)) {
       setCategories((prev) => [...prev, form.category].sort((a, b) => a.localeCompare(b)));
     }
@@ -418,9 +517,63 @@ export default function MenuItemPage() {
       || selectedCategoryInfo?.imageUrl
       || null);
 
+  const inventoryOptions = useMemo(() => (
+    [...inventoryItems].sort((a, b) => a.name.localeCompare(b.name))
+  ), [inventoryItems]);
+
+  const inventoryById = useMemo(() => {
+    const map = {};
+    inventoryOptions.forEach((item) => {
+      map[item.id] = item;
+    });
+    return map;
+  }, [inventoryOptions]);
+
+  const recipeFingerprint = useMemo(() => (
+    buildRecipeFingerprint(recipeRows)
+  ), [recipeRows]);
+
+  const isRecipeDirty = useMemo(() => (
+    isEditMode && recipeFingerprint !== recipeSnapshot
+  ), [isEditMode, recipeFingerprint, recipeSnapshot]);
+
+  const recipeStatus = useMemo(() => {
+    if (!isEditMode) {
+      return null;
+    }
+    if (recipeLoading) {
+      return {
+        label: 'Loading...',
+        className: 'border-slate-200 bg-slate-50 text-slate-600',
+      };
+    }
+    if (recipeSaving) {
+      return {
+        label: 'Saving...',
+        className: 'border-amber-200 bg-amber-50 text-amber-700',
+      };
+    }
+    if (isRecipeDirty) {
+      return {
+        label: 'Unsaved changes',
+        className: 'border-amber-200 bg-amber-50 text-amber-700',
+      };
+    }
+    return {
+      label: 'Saved',
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    };
+  }, [isEditMode, isRecipeDirty, recipeLoading, recipeSaving]);
+
   useEffect(() => {
     setCategoryImageState((prev) => ({ ...prev, error: '' }));
   }, [selectedCategory]);
+
+  useEffect(() => {
+    if (recipeNotice?.type === 'success' && isRecipeDirty) {
+      setRecipeNotice(null);
+    }
+  }, [recipeNotice, isRecipeDirty]);
 
   useEffect(() => {
     setPendingCategoryImage({
@@ -633,6 +786,66 @@ export default function MenuItemPage() {
       setError(saveError?.message || 'Failed to save menu item.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAddRecipeRow = () => {
+    if (inventoryOptions.length === 0) {
+      return;
+    }
+
+    const nextItemId = inventoryOptions[0]?.id ?? 0;
+    setRecipeRows((prev) => ([
+      ...prev,
+      {
+        key: `new-${Date.now()}-${prev.length}`,
+        inventoryItemId: nextItemId,
+        quantity: '',
+      },
+    ]));
+  };
+
+  const handleRecipeRowChange = (key, field, value) => {
+    setRecipeRows((prev) => prev.map((row) => (
+      row.key === key ? { ...row, [field]: value } : row
+    )));
+  };
+
+  const handleRemoveRecipeRow = (key) => {
+    setRecipeRows((prev) => prev.filter((row) => row.key !== key));
+  };
+
+  const handleSaveRecipe = async () => {
+    if (!isEditMode || recipeSaving) {
+      return;
+    }
+
+    setRecipeSaving(true);
+    setRecipeError('');
+    setRecipeNotice(null);
+
+    try {
+      const payload = recipeRows
+        .map((row) => ({
+          inventoryItemId: row.inventoryItemId,
+          quantity: Number.parseFloat(row.quantity),
+        }))
+        .filter((row) => row.inventoryItemId > 0 && Number.isFinite(row.quantity) && row.quantity > 0);
+
+      const saved = await setRecipe(id, payload);
+      const rows = (saved || []).map((entry, index) => ({
+        key: entry.id ? `recipe-${entry.id}` : `recipe-${index}`,
+        inventoryItemId: entry.inventoryItemId,
+        quantity: entry.quantity ? String(entry.quantity) : '',
+      }));
+      setRecipeRows(rows);
+      setRecipeSnapshot(buildRecipeFingerprint(rows));
+      setRecipeNotice({ type: 'success', message: 'Recipe saved.' });
+    } catch (saveError) {
+      console.error('Failed to save recipe:', saveError);
+      setRecipeError(saveError?.message || 'Failed to save recipe.');
+    } finally {
+      setRecipeSaving(false);
     }
   };
 
@@ -899,6 +1112,156 @@ export default function MenuItemPage() {
               </button>
             )}
           </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200/70 bg-white/78 backdrop-blur-xl shadow-[0_18px_35px_-30px_rgba(15,23,42,0.75)] p-6 sm:p-8 space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-slate-100 text-slate-600">
+                <Layers size={20} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">Recipe ingredients</h2>
+                <p className="text-sm text-slate-500 mt-1">Stock is deducted when an item is served.</p>
+              </div>
+            </div>
+            {recipeStatus && (
+              <span
+                className={`inline-flex items-center px-3 py-1.5 rounded-full border text-xs font-semibold ${recipeStatus.className}`}
+              >
+                {recipeStatus.label}
+              </span>
+            )}
+          </div>
+
+          {recipeNotice && (
+            <div
+              className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                recipeNotice.type === 'error'
+                  ? 'border-rose-200 bg-rose-50/80 text-rose-700'
+                  : 'border-emerald-200 bg-emerald-50/80 text-emerald-700'
+              }`}
+            >
+              {recipeNotice.message}
+            </div>
+          )}
+
+          {recipeError && (
+            <div className="rounded-2xl border border-rose-200/70 bg-rose-50/80 p-4 text-sm font-semibold text-rose-700">
+              {recipeError}
+            </div>
+          )}
+
+          {!isEditMode ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">
+              Save this menu item to configure its recipe.
+            </div>
+          ) : recipeLoading ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">
+              Loading recipe...
+            </div>
+          ) : inventoryOptions.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <span>No inventory items yet. Add ingredients to build recipes.</span>
+              <button
+                type="button"
+                onClick={() => navigate('/inventory/add')}
+                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
+              >
+                <Package size={14} />
+                Add inventory item
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {recipeRows.length === 0 && (
+                <div className="text-sm text-slate-500">No ingredients added yet.</div>
+              )}
+
+              <div className="grid gap-4">
+                {recipeRows.map((row) => {
+                  const selectedItem = inventoryById[row.inventoryItemId];
+                  return (
+                    <div key={row.key} className="grid gap-2">
+                      <div className="grid gap-3 sm:grid-cols-[1fr_160px_44px] sm:items-end">
+                        <label className="grid gap-1">
+                          <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-semibold">
+                            Ingredient
+                          </span>
+                          <select
+                            value={row.inventoryItemId || ''}
+                            onChange={(event) => handleRecipeRowChange(
+                              row.key,
+                              'inventoryItemId',
+                              Number.parseInt(event.target.value, 10) || 0,
+                            )}
+                            className="h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-100"
+                          >
+                            <option value="">Select ingredient</option>
+                            {inventoryOptions.map((item) => (
+                              <option key={item.id} value={item.id}>{item.name}</option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="grid gap-1">
+                          <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-semibold">
+                            Qty / item
+                          </span>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={row.quantity}
+                              onChange={(event) => handleRecipeRowChange(row.key, 'quantity', event.target.value)}
+                              className="h-11 w-full px-3 pr-12 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-100"
+                              placeholder="0.00"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+                              {selectedItem?.unit || '--'}
+                            </span>
+                          </div>
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRecipeRow(row.key)}
+                          className="h-11 w-11 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 flex items-center justify-center"
+                          aria-label="Remove ingredient"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      <div className="text-xs text-slate-400 min-h-[16px]">
+                        {selectedItem ? `On hand: ${selectedItem.onHand.toFixed(2)} ${selectedItem.unit}` : ''}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleAddRecipeRow}
+                  className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
+                >
+                  <Plus size={14} />
+                  Add ingredient
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveRecipe}
+                  disabled={recipeSaving || !isRecipeDirty}
+                  className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-slate-900 text-white font-semibold shadow-[0_12px_24px_-18px_rgba(15,23,42,0.8)] hover:bg-slate-800 transition-colors disabled:opacity-60"
+                >
+                  <Save size={14} />
+                  {recipeSaving ? 'Saving...' : 'Save recipe'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

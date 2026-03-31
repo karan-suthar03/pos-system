@@ -1,6 +1,11 @@
-import { ChefHat, CheckCircle2, Printer } from 'lucide-react';
+import { AlertTriangle, Bell, ChefHat, CheckCircle2, Printer } from 'lucide-react';
 
-function CounterHeader() {
+function CounterHeader({
+  stockWarningsEnabled = true,
+  onToggleStockWarnings,
+  lowStockCount = 0,
+  onOpenAlerts,
+}) {
   return (
     <header className="bg-white/70 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-50 transition-all shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -23,7 +28,34 @@ function CounterHeader() {
             </div>
           </div>
 
+          <button
+            type="button"
+            onClick={() => onToggleStockWarnings?.()}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-colors ${
+              stockWarningsEnabled
+                ? 'bg-rose-50/80 border-rose-200 text-rose-700'
+                : 'bg-slate-50 border-slate-200 text-slate-500'
+            }`}
+          >
+            <AlertTriangle size={12} className={stockWarningsEnabled ? 'text-rose-600' : 'text-slate-400'} />
+            {stockWarningsEnabled ? 'Stock alerts on' : 'Stock alerts off'}
+          </button>
+
           <div className="h-8 w-px bg-slate-200/60 hidden sm:block"></div>
+
+          <button
+            type="button"
+            onClick={() => onOpenAlerts?.()}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-50"
+          >
+            <Bell size={12} className="text-slate-500" />
+            Alerts
+            {lowStockCount > 0 && (
+              <span className="ml-1 px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px]">
+                {lowStockCount}
+              </span>
+            )}
+          </button>
 
           <div className="hidden md:flex flex-col items-end">
             <span className="text-sm font-bold tracking-tight text-slate-700">06:42 PM</span>

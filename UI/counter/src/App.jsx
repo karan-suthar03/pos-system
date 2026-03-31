@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import CounterHeader from './components/CounterHeader';
 import StatsBar from './components/StatsBar';
@@ -11,6 +12,7 @@ import {
   getOrders,
   setOrderPaymentStatus,
 } from './API/orders';
+import { listLowStockItems } from './API/inventory';
 import { useDrafts } from './hooks/useDrafts';
 
 function getOrderTotal(order) {
@@ -20,10 +22,24 @@ function getOrderTotal(order) {
   }, 0);
 }
 
+function formatQuantity(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return '--';
+  }
+  return parsed % 1 === 0 ? String(parsed) : parsed.toFixed(2);
+}
+
 function App() {
   const [showCreateOrderPopup, setShowCreateOrderPopup] = useState(false);
   const [showDraftsModal, setShowDraftsModal] = useState(false);
   const [orders, setOrders] = useState([]);
+  const [lowStockItems, setLowStockItems] = useState([]);
+  const [showAlertsModal, setShowAlertsModal] = useState(false);
+  const [stockWarningsEnabled, setStockWarningsEnabled] = useState(() => {
+    const saved = localStorage.getItem('counter_stock_warnings_enabled');
+    return saved === null ? true : saved === 'true';
+  });
   const [autoPayEnabled, setAutoPayEnabled] = useState(() => {
     const saved = localStorage.getItem('counter_auto_pay_enabled');
     return saved === null ? true : saved === 'true';
@@ -33,6 +49,19 @@ function App() {
   const [editingDraftId, setEditingDraftId] = useState(null);
   const [draftToResume, setDraftToResume] = useState(null);
   const { drafts, addDraft, updateDraft, deleteDraft, getDraft } = useDrafts();
+
+  async function refreshLowStock({ force = false } = {}) {
+    if (!stockWarningsEnabled && !force) {
+      return;
+    }
+
+    try {
+      const items = await listLowStockItems();
+      setLowStockItems(items || []);
+    } catch (error) {
+      console.error('Failed to fetch low-stock items:', error);
+    }
+  }
 
   async function fetchOrders({ selectNewest = false } = {}) {
     let fetched = [];
@@ -55,6 +84,8 @@ function App() {
       }
       return null;
     });
+
+    refreshLowStock();
   }
 
   useEffect(() => {
@@ -70,6 +101,16 @@ function App() {
   useEffect(() => {
     localStorage.setItem('counter_auto_pay_enabled', String(autoPayEnabled));
   }, [autoPayEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('counter_stock_warnings_enabled', String(stockWarningsEnabled));
+    if (!stockWarningsEnabled) {
+      setLowStockItems([]);
+      return;
+    }
+
+    refreshLowStock({ force: true });
+  }, [stockWarningsEnabled]);
 
   const stats = useMemo(() => {
     const active = orders.filter((order) => order.status === 'OPEN').length;
@@ -138,6 +179,11 @@ function App() {
     );
   }
 
+  function handleOpenAlerts() {
+    setShowAlertsModal(true);
+    refreshLowStock({ force: true });
+  }
+
   async function runOrderAction(order, action, execute) {
     if (!order?.id) {
       return;
@@ -147,6 +193,7 @@ function App() {
       setActionState({ orderId: order.id, action });
       const updatedOrder = await execute(order.id);
       updateOrderInState(updatedOrder);
+      refreshLowStock();
     } catch (error) {
       console.error(`Failed to ${action}:`, error);
     } finally {
@@ -183,7 +230,12 @@ function App() {
         <div className="absolute bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-emerald-50/80 rounded-full blur-[120px]" />
       </div>
 
-      <CounterHeader />
+      <CounterHeader
+        stockWarningsEnabled={stockWarningsEnabled}
+        onToggleStockWarnings={() => setStockWarningsEnabled((current) => !current)}
+        lowStockCount={lowStockItems.length}
+        onOpenAlerts={handleOpenAlerts}
+      />
       <StatsBar
         stats={stats}
         onCreateOrder={() => {
@@ -220,6 +272,73 @@ function App() {
           powered by <span className="text-slate-400">triniti solutions</span>
         </p>
       </footer>
+
+      {showAlertsModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm"
+          onClick={() => setShowAlertsModal(false)}
+        >
+          <div
+            className="w-full max-w-xl rounded-3xl border border-slate-200/70 bg-white/95 backdrop-blur-xl shadow-[0_24px_70px_-24px_rgba(15,23,42,0.5)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/70">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-rose-100 text-rose-600">
+                  <AlertTriangle size={16} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-widest font-semibold text-slate-400">Notifications</p>
+                  <p className="text-base font-semibold text-slate-800">Stock alerts</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAlertsModal(false)}
+                className="h-9 px-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
+              {!stockWarningsEnabled ? (
+                <div className="text-sm text-slate-500">
+                  Stock alerts are turned off.
+                </div>
+              ) : lowStockItems.length === 0 ? (
+                <div className="text-sm text-slate-500">No low-stock alerts right now.</div>
+              ) : (
+                <div className="space-y-2">
+                  {lowStockItems.map((item) => (
+                    <div
+                      key={`alert-${item.id}`}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-rose-200/70 bg-rose-50/60 px-4 py-3"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{item.name}</p>
+                        {item.category && (
+                          <p className="text-xs text-slate-400 mt-1">{item.category}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-rose-700">
+                          {formatQuantity(item.onHand)} {item.unit}
+                        </div>
+                        {item.lowStockThreshold > 0 && (
+                          <div className="text-xs text-rose-500">
+                            Threshold {formatQuantity(item.lowStockThreshold)} {item.unit}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <CreateOrderPopup
         isOpen={showCreateOrderPopup}

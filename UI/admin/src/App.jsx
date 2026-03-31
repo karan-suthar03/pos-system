@@ -7,6 +7,10 @@ import Orders from './pages/Orders.jsx';
 import OrderDetailPage from './pages/OrderDetailPage.jsx';
 import Menu from './pages/Menu.jsx';
 import MenuItemPage from './pages/MenuItemPage.jsx';
+import InventoryPage from './pages/InventoryPage.jsx';
+import AddInventoryItemPage from './pages/AddInventoryItemPage.jsx';
+import InventoryItemDetailPage from './pages/InventoryItemDetailPage.jsx';
+import InventoryMovementsPage from './pages/InventoryMovementsPage.jsx';
 
 function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -51,6 +55,10 @@ function App() {
               <Route path="/orders/:orderId" element={<OrderDetailPage />} />
               <Route path="/menu" element={<Menu />} />
               <Route path="/menu/item/:id" element={<MenuItemPage />} />
+              <Route path="/inventory" element={<InventoryPage />} />
+              <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
+              <Route path="/inventory/add" element={<AddInventoryItemPage />} />
+              <Route path="/inventory/:id" element={<InventoryItemDetailPage />} />
               <Route path="*" element={<Navigate to="/analytics" replace />} />
             </Routes>
           </main>

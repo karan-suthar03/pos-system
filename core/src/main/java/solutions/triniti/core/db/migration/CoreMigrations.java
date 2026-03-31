@@ -620,6 +620,165 @@ public final class CoreMigrations {
                     );
                 }
             }
+            ,
+            new Migration() {
+                @Override
+                public int version() {
+                    return 12;
+                }
+
+                @Override
+                public String name() {
+                    return "init_inventory_tables";
+                }
+
+                @Override
+                public void apply(ConnectionSource connectionSource) throws Exception {
+                    String nowExpr = "(CAST(strftime('%s','now') AS INTEGER) * 1000)";
+
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TABLE IF NOT EXISTS inventory_items (" +
+                        "inventory_item_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "name TEXT NOT NULL, " +
+                        "category TEXT, " +
+                        "unit TEXT NOT NULL DEFAULT 'unit', " +
+                        "on_hand REAL NOT NULL DEFAULT 0, " +
+                        "low_stock_threshold REAL NOT NULL DEFAULT 0, " +
+                        "max_stock REAL NOT NULL DEFAULT 0, " +
+                        "notes TEXT, " +
+                        "created_at INTEGER NOT NULL DEFAULT " + nowExpr + ", " +
+                        "updated_at INTEGER NOT NULL DEFAULT " + nowExpr + ", " +
+                        "deleted_at INTEGER" +
+                        ")"
+                    );
+
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TABLE IF NOT EXISTS dish_ingredients (" +
+                        "dish_ingredient_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "dish_id INTEGER NOT NULL, " +
+                        "inventory_item_id INTEGER NOT NULL, " +
+                        "quantity REAL NOT NULL DEFAULT 0, " +
+                        "created_at INTEGER NOT NULL DEFAULT " + nowExpr + ", " +
+                        "updated_at INTEGER NOT NULL DEFAULT " + nowExpr + ", " +
+                        "deleted_at INTEGER, " +
+                        "FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE CASCADE, " +
+                        "FOREIGN KEY (inventory_item_id) REFERENCES inventory_items(inventory_item_id)" +
+                        ")"
+                    );
+
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TABLE IF NOT EXISTS inventory_movements (" +
+                        "inventory_movement_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "inventory_item_id INTEGER NOT NULL, " +
+                        "delta REAL NOT NULL, " +
+                        "reason TEXT NOT NULL, " +
+                        "ref_type TEXT, " +
+                        "ref_id INTEGER, " +
+                        "notes TEXT, " +
+                        "created_at INTEGER NOT NULL DEFAULT " + nowExpr + ", " +
+                        "updated_at INTEGER NOT NULL DEFAULT " + nowExpr + ", " +
+                        "deleted_at INTEGER, " +
+                        "FOREIGN KEY (inventory_item_id) REFERENCES inventory_items(inventory_item_id)" +
+                        ")"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "CREATE INDEX IF NOT EXISTS idx_inventory_items_deleted_at ON inventory_items(deleted_at)");
+                    SqlMigrationSupport.execute(connectionSource, "CREATE INDEX IF NOT EXISTS idx_dish_ingredients_dish_id ON dish_ingredients(dish_id)");
+                    SqlMigrationSupport.execute(connectionSource, "CREATE INDEX IF NOT EXISTS idx_dish_ingredients_item_id ON dish_ingredients(inventory_item_id)");
+                    SqlMigrationSupport.execute(connectionSource, "CREATE INDEX IF NOT EXISTS idx_inventory_movements_item_id ON inventory_movements(inventory_item_id)");
+                    SqlMigrationSupport.execute(connectionSource, "CREATE INDEX IF NOT EXISTS idx_inventory_movements_created_at ON inventory_movements(created_at)");
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_inventory_items_set_created_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_inventory_items_set_created_at " +
+                        "AFTER INSERT ON inventory_items " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 OR NEW.updated_at IS NULL OR NEW.updated_at <= 0 " +
+                        "BEGIN " +
+                        "UPDATE inventory_items " +
+                        "SET created_at = CASE WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 THEN " + nowExpr + " ELSE NEW.created_at END, " +
+                        "updated_at = CASE WHEN NEW.updated_at IS NULL OR NEW.updated_at <= 0 THEN " + nowExpr + " ELSE NEW.updated_at END " +
+                        "WHERE inventory_item_id = NEW.inventory_item_id; " +
+                        "END"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_inventory_items_set_updated_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_inventory_items_set_updated_at " +
+                        "AFTER UPDATE ON inventory_items " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.updated_at = OLD.updated_at " +
+                        "BEGIN " +
+                        "UPDATE inventory_items " +
+                        "SET updated_at = " + nowExpr + " " +
+                        "WHERE inventory_item_id = OLD.inventory_item_id; " +
+                        "END"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_dish_ingredients_set_created_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_dish_ingredients_set_created_at " +
+                        "AFTER INSERT ON dish_ingredients " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 OR NEW.updated_at IS NULL OR NEW.updated_at <= 0 " +
+                        "BEGIN " +
+                        "UPDATE dish_ingredients " +
+                        "SET created_at = CASE WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 THEN " + nowExpr + " ELSE NEW.created_at END, " +
+                        "updated_at = CASE WHEN NEW.updated_at IS NULL OR NEW.updated_at <= 0 THEN " + nowExpr + " ELSE NEW.updated_at END " +
+                        "WHERE dish_ingredient_id = NEW.dish_ingredient_id; " +
+                        "END"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_dish_ingredients_set_updated_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_dish_ingredients_set_updated_at " +
+                        "AFTER UPDATE ON dish_ingredients " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.updated_at = OLD.updated_at " +
+                        "BEGIN " +
+                        "UPDATE dish_ingredients " +
+                        "SET updated_at = " + nowExpr + " " +
+                        "WHERE dish_ingredient_id = OLD.dish_ingredient_id; " +
+                        "END"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_inventory_movements_set_created_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_inventory_movements_set_created_at " +
+                        "AFTER INSERT ON inventory_movements " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 OR NEW.updated_at IS NULL OR NEW.updated_at <= 0 " +
+                        "BEGIN " +
+                        "UPDATE inventory_movements " +
+                        "SET created_at = CASE WHEN NEW.created_at IS NULL OR NEW.created_at <= 0 THEN " + nowExpr + " ELSE NEW.created_at END, " +
+                        "updated_at = CASE WHEN NEW.updated_at IS NULL OR NEW.updated_at <= 0 THEN " + nowExpr + " ELSE NEW.updated_at END " +
+                        "WHERE inventory_movement_id = NEW.inventory_movement_id; " +
+                        "END"
+                    );
+
+                    SqlMigrationSupport.execute(connectionSource, "DROP TRIGGER IF EXISTS trg_inventory_movements_set_updated_at");
+                    SqlMigrationSupport.execute(
+                        connectionSource,
+                        "CREATE TRIGGER trg_inventory_movements_set_updated_at " +
+                        "AFTER UPDATE ON inventory_movements " +
+                        "FOR EACH ROW " +
+                        "WHEN NEW.updated_at = OLD.updated_at " +
+                        "BEGIN " +
+                        "UPDATE inventory_movements " +
+                        "SET updated_at = " + nowExpr + " " +
+                        "WHERE inventory_movement_id = OLD.inventory_movement_id; " +
+                        "END"
+                    );
+                }
+            }
         );
     }
 

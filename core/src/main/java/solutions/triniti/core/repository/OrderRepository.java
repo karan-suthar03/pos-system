@@ -8,6 +8,7 @@ import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.model.Dish;
 import solutions.triniti.core.model.Order;
 import solutions.triniti.core.model.OrderItem;
+import solutions.triniti.core.repository.InventoryRepository;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -18,6 +19,7 @@ public class OrderRepository {
 	private final Dao<Order, Integer> orderDao;
 	private final Dao<OrderItem, Integer> orderItemDao;
 	private final DishRepository dishRepository;
+	private final InventoryRepository inventoryRepository;
 
 	public OrderRepository(OrmLiteConnectionProvider ormLiteConnectionProvider) {
 		if (ormLiteConnectionProvider == null) {
@@ -36,6 +38,7 @@ public class OrderRepository {
 		this.orderDao = resolvedOrderDao;
 		this.orderItemDao = resolvedOrderItemDao;
 		this.dishRepository = new DishRepository(ormLiteConnectionProvider);
+		this.inventoryRepository = new InventoryRepository(ormLiteConnectionProvider);
 	}
 
 	public List<Order> listAll() throws Exception {
@@ -159,6 +162,7 @@ public class OrderRepository {
 			List<OrderItem> items = listItemsByOrderId(orderId);
 			for (OrderItem item : items) {
 				if (!"CANCELLED".equals(item.item_status) && !"SERVED".equals(item.item_status)) {
+					applyInventoryForStatusChange(item, "SERVED");
 					item.item_status = "SERVED";
 					orderItemDao.update(item);
 				}
@@ -256,8 +260,13 @@ public class OrderRepository {
 		try {
 			requireOrder(orderId);
 			OrderItem item = requireOrderItemForOrder(orderId, orderItemId);
-			item.item_status = normalizeItemStatus(status);
-			orderItemDao.update(item);
+			String nextStatus = normalizeItemStatus(status);
+			if (!nextStatus.equals(item.item_status)) {
+				applyInventoryForStatusChange(item, nextStatus);
+				item.item_status = nextStatus;
+				orderItemDao.update(item);
+				updateOrderTotal(orderId);
+			}
 			return getOrderById(orderId);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -269,6 +278,9 @@ public class OrderRepository {
 		try {
 			requireOrder(orderId);
 			OrderItem item = requireOrderItemForOrder(orderId, orderItemId);
+			if ("SERVED".equals(item.item_status)) {
+				applyInventoryForStatusChange(item, "CANCELLED");
+			}
 			item.item_status = "CANCELLED";
 			item.deleted_at = System.currentTimeMillis();
 			orderItemDao.update(item);
@@ -340,6 +352,28 @@ public class OrderRepository {
 	private void validateQuantity(int quantity) {
 		if (quantity <= 0) {
 			throw new IllegalArgumentException("Quantity must be greater than zero");
+		}
+	}
+
+	private void applyInventoryForStatusChange(OrderItem item, String nextStatus) {
+		try {
+			String previousStatus = item.item_status == null ? "" : item.item_status.trim().toUpperCase(Locale.US);
+			String normalizedNext = nextStatus == null ? "" : nextStatus.trim().toUpperCase(Locale.US);
+
+			boolean wasServed = "SERVED".equals(previousStatus);
+			boolean willBeServed = "SERVED".equals(normalizedNext);
+			if (wasServed == willBeServed) {
+				return;
+			}
+
+			inventoryRepository.applyRecipeForOrderItem(
+				item.dish_id,
+				item.order_item_id,
+				item.quantity,
+				willBeServed
+			);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 

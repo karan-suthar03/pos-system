@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import {
+  Activity,
   TrendingUp,
   ShoppingBag,
   UtensilsCrossed,
@@ -54,6 +55,7 @@ function SidebarContent({ onNavigate }) {
         <SidebarItem to="/orders" icon={ShoppingBag} label="Orders History" onNavigate={onNavigate} />
         <SidebarItem to="/menu" icon={UtensilsCrossed} label="Menu Items" onNavigate={onNavigate} />
         <SidebarItem to="/inventory" icon={Package} label="Inventory" onNavigate={onNavigate} />
+        <SidebarItem to="/inventory/movements" icon={Activity} label="Movements" onNavigate={onNavigate} />
       </nav>
     </>
   );

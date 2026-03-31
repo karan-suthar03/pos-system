@@ -10,6 +10,7 @@ import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.handler.AnalyticsRequestHandler;
 import solutions.triniti.core.handler.CategoryRequestHandler;
 import solutions.triniti.core.handler.DishRequestHandler;
+import solutions.triniti.core.handler.InventoryRequestHandler;
 import solutions.triniti.core.handler.OrderRequestHandler;
 import solutions.triniti.core.handler.PrintRequestHandler;
 import solutions.triniti.core.handler.RequestHandler;
@@ -38,6 +39,7 @@ public class Core {
             new DishRequestHandler(ormLiteConnectionProvider),
             new CategoryRequestHandler(ormLiteConnectionProvider, storageService),
             new StorageRequestHandler(storageService),
+            new InventoryRequestHandler(ormLiteConnectionProvider),
             new OrderRequestHandler(ormLiteConnectionProvider),
             new PrintRequestHandler()
         );
