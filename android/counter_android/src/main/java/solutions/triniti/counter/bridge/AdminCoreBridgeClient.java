@@ -45,7 +45,7 @@ public class AdminCoreBridgeClient {
     private void ensureProviderAvailable() {
         if (appContext.getPackageManager().resolveContentProvider(ADMIN_AUTHORITY, 0) == null) {
             throw new IllegalStateException(
-                "Admin provider not found for authority '" + ADMIN_AUTHORITY + "'. Install/run admin_android app first."
+                "Admin provider not found for authority '" + ADMIN_AUTHORITY + "'. Install/run the Admin app first."
             );
         }
     }

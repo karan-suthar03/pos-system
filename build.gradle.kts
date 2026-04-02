@@ -11,7 +11,7 @@ tasks.register<Copy>("prepareDesktopAdmin") {
     from(project(":admin_desktop:backend").layout.buildDirectory.dir("libs"))
     include("*.jar")
 
-    into("electron")
+    into("desktop/electron")
 
     rename { "core.jar" }
 }

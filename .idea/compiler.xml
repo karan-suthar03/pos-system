@@ -2,6 +2,8 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel target="11">
+      <module name="pos-system.admin_android" target="21" />
+      <module name="pos-system.counter_android" target="21" />
       <module name="pos-system.desktop_admin" target="17" />
       <module name="pos-system.desktop_admin.main" target="17" />
       <module name="pos-system.desktop_admin.test" target="17" />

@@ -10,12 +10,12 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/admin_android" />
             <option value="$PROJECT_DIR$/admin_desktop" />
             <option value="$PROJECT_DIR$/admin_desktop/backend" />
+            <option value="$PROJECT_DIR$/android/admin_android" />
+            <option value="$PROJECT_DIR$/android/counter_android" />
             <option value="$PROJECT_DIR$/backend" />
             <option value="$PROJECT_DIR$/core" />
-            <option value="$PROJECT_DIR$/counter_android" />
           </set>
         </option>
       </GradleProjectSettings>
