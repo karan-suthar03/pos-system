@@ -13,6 +13,7 @@ import {
   setOrderPaymentStatus,
 } from './API/orders';
 import { listLowStockItems } from './API/inventory';
+import { getServerStatus } from './API/serverStatus';
 import { useDrafts } from './hooks/useDrafts';
 
 function getOrderTotal(order) {
@@ -46,6 +47,7 @@ function App() {
   });
   const [actionState, setActionState] = useState({ orderId: null, action: null });
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [serverOnline, setServerOnline] = useState(false);
   const [editingDraftId, setEditingDraftId] = useState(null);
   const [draftToResume, setDraftToResume] = useState(null);
   const { drafts, addDraft, updateDraft, deleteDraft, getDraft } = useDrafts();
@@ -90,6 +92,26 @@ function App() {
 
   useEffect(() => {
     fetchOrders();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const refreshStatus = async () => {
+      const status = await getServerStatus();
+      if (!active) {
+        return;
+      }
+      setServerOnline(Boolean(status?.online));
+    };
+
+    refreshStatus();
+    const intervalId = window.setInterval(refreshStatus, 10000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   useEffect(() => {
@@ -235,6 +257,7 @@ function App() {
         onToggleStockWarnings={() => setStockWarningsEnabled((current) => !current)}
         lowStockCount={lowStockItems.length}
         onOpenAlerts={handleOpenAlerts}
+        serverOnline={serverOnline}
       />
       <StatsBar
         stats={stats}

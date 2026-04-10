@@ -1,10 +1,11 @@
-import { AlertTriangle, Bell, ChefHat, CheckCircle2, Printer } from 'lucide-react';
+import { AlertTriangle, Bell, ChefHat, CheckCircle2, Cloud, CloudOff, Printer } from 'lucide-react';
 
 function CounterHeader({
   stockWarningsEnabled = true,
   onToggleStockWarnings,
   lowStockCount = 0,
   onOpenAlerts,
+  serverOnline = false,
 }) {
   return (
     <header className="bg-white/70 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-50 transition-all shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)]">
@@ -20,6 +21,19 @@ function CounterHeader({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-6">
+          <div className="hidden sm:block">
+            <div
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${
+                serverOnline
+                  ? 'bg-emerald-50/80 border-emerald-200 text-emerald-700'
+                  : 'bg-rose-50/80 border-rose-200 text-rose-700'
+              }`}
+            >
+              {serverOnline ? <Cloud size={12} /> : <CloudOff size={12} />}
+              {serverOnline ? 'Server online' : 'Server offline'}
+            </div>
+          </div>
+
           <div className="hidden md:block">
             <div className="flex items-center gap-2 bg-emerald-50/80 text-emerald-600 px-4 py-1.5 rounded-full border border-emerald-100 shadow-sm">
               <Printer size={14} className="opacity-80" />

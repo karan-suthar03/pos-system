@@ -50,6 +50,22 @@ public class InventoryRepository {
         return queryBuilder.query();
     }
 
+    public List<InventoryItem> listItemsForSync() throws Exception {
+        QueryBuilder<InventoryItem, Integer> queryBuilder = inventoryItemDao.queryBuilder();
+        queryBuilder.orderBy("inventory_item_id", true);
+        return queryBuilder.query();
+    }
+
+    public List<InventoryItem> listItemsUpdatedSinceForSync(long updatedAfterExclusive) throws Exception {
+        QueryBuilder<InventoryItem, Integer> queryBuilder = inventoryItemDao.queryBuilder();
+        if (updatedAfterExclusive > 0) {
+            queryBuilder.where().gt("updated_at", updatedAfterExclusive);
+        }
+        queryBuilder.orderBy("updated_at", true);
+        queryBuilder.orderBy("inventory_item_id", true);
+        return queryBuilder.query();
+    }
+
     public InventoryItem getItemById(int itemId) throws Exception {
         if (itemId <= 0) {
             return null;

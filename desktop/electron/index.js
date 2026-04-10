@@ -123,6 +123,7 @@ function resolveStoragePath(requestUrl) {
   }
 }
 
+
 function failAllPendingRequests(code, message) {
   const requests = Array.from(pendingNativeRequests.values());
   pendingNativeRequests.clear();

@@ -48,12 +48,44 @@ public class OrderRepository {
 		return queryBuilder.query();
 	}
 
+	public List<Order> listAllForSync() throws Exception {
+		QueryBuilder<Order, Integer> queryBuilder = orderDao.queryBuilder();
+		queryBuilder.orderBy("order_id", true);
+		return queryBuilder.query();
+	}
+
+	public List<Order> listUpdatedSinceForSync(long updatedAfterExclusive) throws Exception {
+		QueryBuilder<Order, Integer> queryBuilder = orderDao.queryBuilder();
+		if (updatedAfterExclusive > 0) {
+			queryBuilder.where().gt("updated_at", updatedAfterExclusive);
+		}
+		queryBuilder.orderBy("updated_at", true);
+		queryBuilder.orderBy("order_id", true);
+		return queryBuilder.query();
+	}
+
 	public List<OrderItem> listItemsByOrderId(long orderId) throws Exception {
 		QueryBuilder<OrderItem, Integer> queryBuilder = orderItemDao.queryBuilder();
 		queryBuilder.where()
 			.eq("order_id", orderId)
 			.and()
 			.isNull("deleted_at");
+		queryBuilder.orderBy("order_item_id", true);
+		return queryBuilder.query();
+	}
+
+	public List<OrderItem> listAllItemsForSync() throws Exception {
+		QueryBuilder<OrderItem, Integer> queryBuilder = orderItemDao.queryBuilder();
+		queryBuilder.orderBy("order_item_id", true);
+		return queryBuilder.query();
+	}
+
+	public List<OrderItem> listItemsUpdatedSinceForSync(long updatedAfterExclusive) throws Exception {
+		QueryBuilder<OrderItem, Integer> queryBuilder = orderItemDao.queryBuilder();
+		if (updatedAfterExclusive > 0) {
+			queryBuilder.where().gt("updated_at", updatedAfterExclusive);
+		}
+		queryBuilder.orderBy("updated_at", true);
 		queryBuilder.orderBy("order_item_id", true);
 		return queryBuilder.query();
 	}

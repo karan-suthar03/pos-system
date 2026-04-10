@@ -2,6 +2,9 @@ import React, { useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import {
   Activity,
+  Cloud,
+  CloudOff,
+  Database,
   TrendingUp,
   ShoppingBag,
   UtensilsCrossed,
@@ -9,6 +12,7 @@ import {
   ChefHat,
   X,
 } from "lucide-react";
+import { getServerStatus } from "../API/serverStatus";
 
 function SidebarItem({ to, icon, label, onNavigate }) {
   const IconComponent = icon;
@@ -30,7 +34,10 @@ function SidebarItem({ to, icon, label, onNavigate }) {
   );
 }
 
-function SidebarContent({ onNavigate }) {
+function SidebarContent({ onNavigate, status }) {
+  const online = Boolean(status?.online);
+  const backupReady = Boolean(status?.backupReady);
+
   return (
     <>
       <div className="p-6 border-b border-slate-200/60 flex items-center gap-3 bg-white/40">
@@ -44,6 +51,29 @@ function SidebarContent({ onNavigate }) {
       </div>
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
+        <div className="px-4 py-3 rounded-2xl bg-white border border-slate-200/70 shadow-sm mb-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em]">Server</div>
+            <div
+              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                online
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-rose-50 text-rose-700 border border-rose-200"
+              }`}
+            >
+              {online ? <Cloud size={12} /> : <CloudOff size={12} />}
+              {online ? "Online" : "Offline"}
+            </div>
+          </div>
+
+          <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+            <Database size={12} className={backupReady ? "text-emerald-600" : "text-amber-600"} />
+            {backupReady
+              ? `Backup ready (${status?.backupCount || 0})`
+              : "Backup pending"}
+          </div>
+        </div>
+
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em] mb-2 px-4 mt-2">
           Overview
         </div>
@@ -62,6 +92,12 @@ function SidebarContent({ onNavigate }) {
 }
 
 export default function Sidebar({ isMobileOpen = false, onMobileClose = () => {} }) {
+  const [status, setStatus] = React.useState({
+    online: false,
+    backupReady: false,
+    backupCount: 0,
+  });
+
   useEffect(() => {
     if (isMobileOpen) {
       document.body.style.overflow = "hidden";
@@ -74,10 +110,30 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose = () => {}
     };
   }, [isMobileOpen]);
 
+  useEffect(() => {
+    let active = true;
+
+    const refreshStatus = async () => {
+      const next = await getServerStatus();
+      if (!active) {
+        return;
+      }
+      setStatus(next || { online: false, backupReady: false, backupCount: 0 });
+    };
+
+    refreshStatus();
+    const intervalId = window.setInterval(refreshStatus, 10000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
   return (
     <>
       <aside className="w-64 bg-white/72 backdrop-blur-xl border-r border-slate-200/60 hidden lg:flex flex-col fixed h-full z-20 shadow-[0_10px_35px_-25px_rgba(15,23,42,0.45)]">
-        <SidebarContent />
+        <SidebarContent status={status} />
       </aside>
 
       <div
@@ -103,7 +159,7 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose = () => {}
           </button>
         </div>
 
-        <SidebarContent onNavigate={onMobileClose} />
+        <SidebarContent onNavigate={onMobileClose} status={status} />
       </aside>
     </>
   );

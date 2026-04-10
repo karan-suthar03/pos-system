@@ -34,6 +34,22 @@ public class CategoryRepository {
         return queryBuilder.query();
     }
 
+    public List<Category> listAllForSync() throws Exception {
+        QueryBuilder<Category, Integer> queryBuilder = categoryDao.queryBuilder();
+        queryBuilder.orderBy("id", true);
+        return queryBuilder.query();
+    }
+
+    public List<Category> listUpdatedSinceForSync(long updatedAfterExclusive) throws Exception {
+        QueryBuilder<Category, Integer> queryBuilder = categoryDao.queryBuilder();
+        if (updatedAfterExclusive > 0) {
+            queryBuilder.where().gt("updated_at", updatedAfterExclusive);
+        }
+        queryBuilder.orderBy("updated_at", true);
+        queryBuilder.orderBy("id", true);
+        return queryBuilder.query();
+    }
+
     public Category getById(int id) throws Exception {
         if (id <= 0) {
             return null;

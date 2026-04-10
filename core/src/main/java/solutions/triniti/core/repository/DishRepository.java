@@ -44,6 +44,22 @@ public class DishRepository {
         return queryBuilder.query();
     }
 
+    public List<Dish> listAllForSync() throws Exception {
+        QueryBuilder<Dish, Integer> queryBuilder = dishDao.queryBuilder();
+        queryBuilder.orderBy("id", true);
+        return queryBuilder.query();
+    }
+
+    public List<Dish> listUpdatedSinceForSync(long updatedAfterExclusive) throws Exception {
+        QueryBuilder<Dish, Integer> queryBuilder = dishDao.queryBuilder();
+        if (updatedAfterExclusive > 0) {
+            queryBuilder.where().gt("updated_at", updatedAfterExclusive);
+        }
+        queryBuilder.orderBy("updated_at", true);
+        queryBuilder.orderBy("id", true);
+        return queryBuilder.query();
+    }
+
     public Dish getById(long id) throws Exception {
         if (id <= 0) {
             return null;

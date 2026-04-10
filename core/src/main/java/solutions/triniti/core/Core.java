@@ -15,6 +15,7 @@ import solutions.triniti.core.handler.OrderRequestHandler;
 import solutions.triniti.core.handler.PrintRequestHandler;
 import solutions.triniti.core.handler.RequestHandler;
 import solutions.triniti.core.handler.StorageRequestHandler;
+import solutions.triniti.core.handler.SyncRequestHandler;
 import solutions.triniti.core.storage.StorageConfig;
 import solutions.triniti.core.storage.StorageService;
 
@@ -39,6 +40,7 @@ public class Core {
             new DishRequestHandler(ormLiteConnectionProvider),
             new CategoryRequestHandler(ormLiteConnectionProvider, storageService),
             new StorageRequestHandler(storageService),
+            new SyncRequestHandler(),
             new InventoryRequestHandler(ormLiteConnectionProvider),
             new OrderRequestHandler(ormLiteConnectionProvider),
             new PrintRequestHandler()
