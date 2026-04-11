@@ -1,6 +1,10 @@
 package solutions.triniti.counter;
 
+import android.bluetooth.BluetoothAdapter;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -9,17 +13,30 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.ContextCompat;
 
 import java.io.InputStream;
 import java.net.URLConnection;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String COUNTER_URL = "http://10.190.196.21:3001/";
+    private static final String COUNTER_URL = "http://10.183.182.21:3001/";
 
     private WebView webView;
     private NativeApiBridge nativeApiBridge;
     private Uri storageBaseUri;
+    private final ActivityResultLauncher<String[]> bluetoothPermissionLauncher = registerForActivityResult(
+        new ActivityResultContracts.RequestMultiplePermissions(),
+        result -> requestBluetoothEnableIfNeeded()
+    );
+    private final ActivityResultLauncher<Intent> bluetoothEnableLauncher = registerForActivityResult(
+        new ActivityResultContracts.StartActivityForResult(),
+        result -> {
+            // No-op: bridge and print status polling will observe final state.
+        }
+    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,8 +45,34 @@ public class MainActivity extends AppCompatActivity {
 
         webView = findViewById(R.id.counterWebView);
         storageBaseUri = Uri.parse("content://" + BuildConfig.ADMIN_PROVIDER_AUTHORITY + "/storage");
+        requestBluetoothPermissionIfNeeded();
         configureWebView();
         webView.loadUrl(COUNTER_URL);
+    }
+
+    private void requestBluetoothPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            requestBluetoothEnableIfNeeded();
+            return;
+        }
+
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT)
+            == PackageManager.PERMISSION_GRANTED) {
+            requestBluetoothEnableIfNeeded();
+            return;
+        }
+
+        bluetoothPermissionLauncher.launch(new String[] { android.Manifest.permission.BLUETOOTH_CONNECT });
+    }
+
+    private void requestBluetoothEnableIfNeeded() {
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        if (adapter == null || adapter.isEnabled()) {
+            return;
+        }
+
+        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        bluetoothEnableLauncher.launch(intent);
     }
 
     private void configureWebView() {

@@ -13,8 +13,19 @@ import {
   setOrderPaymentStatus,
 } from './API/orders';
 import { listLowStockItems } from './API/inventory';
+import {
+  connectPrinter,
+  connectPrinterToTarget,
+  getStatus as getPrinterStatus,
+  listPrinters,
+  printOrder,
+} from './API/printer';
 import { getServerStatus } from './API/serverStatus';
 import { useDrafts } from './hooks/useDrafts';
+
+const KOT_PRINTER_KEY = 'counter_kot_printer_address';
+const RECEIPT_PRINTER_KEY = 'counter_receipt_printer_address';
+const SINGLE_PRINTER_MODE_KEY = 'counter_single_printer_mode';
 
 function getOrderTotal(order) {
   return order.items.reduce((sum, item) => {
@@ -48,6 +59,16 @@ function App() {
   const [actionState, setActionState] = useState({ orderId: null, action: null });
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [serverOnline, setServerOnline] = useState(false);
+  const [printerStatus, setPrinterStatus] = useState({
+    bluetoothEnabled: false,
+    printerConnected: false,
+    printerName: 'No printer',
+    printers: [],
+  });
+  const [printNotice, setPrintNotice] = useState('');
+  const [kotPrinterAddress, setKotPrinterAddress] = useState(() => localStorage.getItem(KOT_PRINTER_KEY) || '');
+  const [receiptPrinterAddress, setReceiptPrinterAddress] = useState(() => localStorage.getItem(RECEIPT_PRINTER_KEY) || '');
+  const [singlePrinterMode, setSinglePrinterMode] = useState(() => localStorage.getItem(SINGLE_PRINTER_MODE_KEY) !== 'false');
   const [editingDraftId, setEditingDraftId] = useState(null);
   const [draftToResume, setDraftToResume] = useState(null);
   const { drafts, addDraft, updateDraft, deleteDraft, getDraft } = useDrafts();
@@ -97,6 +118,82 @@ function App() {
   useEffect(() => {
     let active = true;
 
+    const refreshPrinterStatus = async () => {
+      try {
+        const status = await getPrinterStatus();
+        if (!active) {
+          return;
+        }
+
+        setPrinterStatus({
+          bluetoothEnabled: Boolean(status?.bluetoothEnabled),
+          printerConnected: Boolean(status?.printerConnected),
+          printerName: status?.printerName || 'No printer',
+          printers: Array.isArray(status?.printers) ? status.printers : [],
+        });
+
+        if (status?.bluetoothEnabled && !status?.printerConnected) {
+          const connected = await connectPrinter();
+          if (!active) {
+            return;
+          }
+          setPrinterStatus((current) => ({
+            ...current,
+            printerConnected: Boolean(connected?.connected),
+            printerName: connected?.printerName || current.printerName,
+            printers: Array.isArray(connected?.printers) ? connected.printers : current.printers,
+          }));
+        }
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        setPrinterStatus((current) => ({
+          ...current,
+          printerConnected: false,
+        }));
+      }
+    };
+
+    refreshPrinterStatus();
+    const intervalId = window.setInterval(refreshPrinterStatus, 8000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const refreshPrinterList = async () => {
+      try {
+        const printers = await listPrinters();
+        if (!active) {
+          return;
+        }
+        setPrinterStatus((current) => ({
+          ...current,
+          printers: Array.isArray(printers) ? printers : current.printers,
+        }));
+      } catch (_error) {
+        // Keep last known list if discovery fails.
+      }
+    };
+
+    refreshPrinterList();
+    const intervalId = window.setInterval(refreshPrinterList, 12000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
     const refreshStatus = async () => {
       const status = await getServerStatus();
       if (!active) {
@@ -133,6 +230,50 @@ function App() {
 
     refreshLowStock({ force: true });
   }, [stockWarningsEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem(KOT_PRINTER_KEY, kotPrinterAddress || '');
+  }, [kotPrinterAddress]);
+
+  useEffect(() => {
+    localStorage.setItem(RECEIPT_PRINTER_KEY, receiptPrinterAddress || '');
+  }, [receiptPrinterAddress]);
+
+  useEffect(() => {
+    localStorage.setItem(SINGLE_PRINTER_MODE_KEY, String(singlePrinterMode));
+  }, [singlePrinterMode]);
+
+  useEffect(() => {
+    if (!printNotice) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setPrintNotice('');
+    }, 5000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [printNotice]);
+
+  useEffect(() => {
+    const printers = Array.isArray(printerStatus.printers) ? printerStatus.printers : [];
+    if (printers.length === 0) {
+      return;
+    }
+
+    const hasKot = kotPrinterAddress && printers.some((printer) => printer.address === kotPrinterAddress);
+    if (!hasKot) {
+      setKotPrinterAddress(printers[0].address || '');
+    }
+
+    // Keep empty receipt address as an explicit "Skip Receipt" choice.
+    const hasReceipt =
+      receiptPrinterAddress === '' || printers.some((printer) => printer.address === receiptPrinterAddress);
+    if (!hasReceipt) {
+      const fallback = printers.length > 1 ? printers[1].address : '';
+      setReceiptPrinterAddress(fallback);
+    }
+  }, [printerStatus.printers, kotPrinterAddress, receiptPrinterAddress]);
 
   const stats = useMemo(() => {
     const active = orders.filter((order) => order.status === 'OPEN').length;
@@ -244,6 +385,68 @@ function App() {
     });
   }
 
+  async function handlePrintOrder(order) {
+    if (!order?.id) {
+      return;
+    }
+
+    try {
+      const status = await getPrinterStatus();
+      const printers = Array.isArray(status?.printers) ? status.printers : [];
+      if (printers.length === 0) {
+        throw new Error('No paired printer found');
+      }
+
+      const fallbackKotAddress = printers[0]?.address || '';
+      const targetKotAddress = kotPrinterAddress || fallbackKotAddress;
+      const targetKot = printers.find((printer) => printer.address === targetKotAddress) || printers[0];
+      if (!targetKot?.address) {
+        throw new Error('No valid KOT printer selected');
+      }
+
+      if (status?.bluetoothEnabled && !status?.printerConnected) {
+        await connectPrinterToTarget({
+          printerName: targetKot.name,
+          printerAddress: targetKot.address,
+        });
+      }
+      await printOrder(order.id, 'KOT', order, {
+        targetPrinterName: targetKot.name,
+        targetPrinterAddress: targetKot.address,
+      });
+
+      const targetReceipt = printers.find((printer) => printer.address === receiptPrinterAddress);
+      const shouldPrintReceipt = !singlePrinterMode && printers.length > 1 && targetReceipt?.address;
+      if (shouldPrintReceipt) {
+        await connectPrinterToTarget({
+          printerName: targetReceipt.name,
+          printerAddress: targetReceipt.address,
+        });
+        await printOrder(order.id, 'RECEIPT', order, {
+          targetPrinterName: targetReceipt.name,
+          targetPrinterAddress: targetReceipt.address,
+        });
+        setPrintNotice('Printed KOT and receipt.');
+      } else if (singlePrinterMode) {
+        setPrintNotice('Printed KOT only (KOT-only mode).');
+      } else if (printers.length <= 1) {
+        setPrintNotice('Printed KOT only (single printer mode).');
+      } else {
+        setPrintNotice('Printed KOT only (receipt printer not selected).');
+      }
+
+      const latestStatus = await getPrinterStatus();
+      setPrinterStatus({
+        bluetoothEnabled: Boolean(latestStatus?.bluetoothEnabled),
+        printerConnected: Boolean(latestStatus?.printerConnected),
+        printerName: latestStatus?.printerName || 'No printer',
+        printers: Array.isArray(latestStatus?.printers) ? latestStatus.printers : [],
+      });
+    } catch (error) {
+      console.error('Failed to print order:', error);
+    }
+  }
+
   return (
     <div className="relative min-h-screen bg-slate-50/30 font-sans text-slate-900 flex flex-col selection:bg-amber-100">
       {/* Subtle Background Glows (matching Launcher) */}
@@ -258,6 +461,17 @@ function App() {
         lowStockCount={lowStockItems.length}
         onOpenAlerts={handleOpenAlerts}
         serverOnline={serverOnline}
+        bluetoothEnabled={printerStatus.bluetoothEnabled}
+        printerConnected={printerStatus.printerConnected}
+        printerName={printerStatus.printerName}
+        printers={printerStatus.printers}
+        kotPrinterAddress={kotPrinterAddress}
+        receiptPrinterAddress={receiptPrinterAddress}
+        onKotPrinterChange={setKotPrinterAddress}
+        onReceiptPrinterChange={setReceiptPrinterAddress}
+        singlePrinterMode={singlePrinterMode}
+        onSinglePrinterModeChange={setSinglePrinterMode}
+        printNotice={printNotice}
       />
       <StatsBar
         stats={stats}
@@ -285,6 +499,7 @@ function App() {
           onTogglePayment={handleTogglePayment}
           onCancelOrder={handleCancelOrder}
           onCompleteOrder={handleCompleteOrder}
+          onPrintOrder={handlePrintOrder}
           actionState={actionState}
         />
       </main>

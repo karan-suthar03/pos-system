@@ -17,6 +17,7 @@ function OrderDetailsPanel({
   onTogglePayment,
   onCancelOrder,
   onCompleteOrder,
+  onPrintOrder,
   actionState,
 }) {
   const [confirmAction, setConfirmAction] = useState(null);
@@ -89,7 +90,10 @@ function OrderDetailsPanel({
             </div>
           </div>
 
-          <button className="p-3 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all cursor-pointer shadow-sm border border-slate-100 bg-white">
+          <button
+            onClick={() => onPrintOrder?.(order)}
+            className="p-3 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all cursor-pointer shadow-sm border border-slate-100 bg-white"
+          >
             <Printer size={20} strokeWidth={2.5} />
           </button>
         </div>

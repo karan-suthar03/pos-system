@@ -6,7 +6,9 @@ import solutions.triniti.core.Core;
 import solutions.triniti.core.bridge.BridgeRequest;
 import solutions.triniti.core.bridge.BridgeResponse;
 import solutions.triniti.core.db.migration.CoreDatabaseBootstrap;
+import solutions.triniti.core.print.PrintProviderRegistry;
 import solutions.triniti.db.SqliteDatabase;
+import solutions.triniti.print.DesktopPrinterConnectionProvider;
 import solutions.triniti.sync.BackendFullSyncClient;
 import java.time.LocalDate;
 
@@ -20,6 +22,8 @@ public class Main {
     public static void main(String[] args) throws Exception {
         String dbPath = args.length > 0 ? args[0] : "pos.db";
         String backendBaseUrl = resolveBackendBaseUrl(args);
+
+        PrintProviderRegistry.setProvider(new DesktopPrinterConnectionProvider());
 
         SqliteDatabase database = new SqliteDatabase(dbPath);
         CoreDatabaseBootstrap.migrate(database);

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">counter</string>
+    <string name="webview_unavailable_message">Android WebView is unavailable on this device.\n\nInstall or enable "Android System WebView" (or update Chrome), then reopen the app.</string>
 </resources>

@@ -1,7 +1,9 @@
 package solutions.triniti.admin;
 
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.content.pm.PackageManager;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -13,6 +15,7 @@ import android.webkit.WebViewClient;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -23,7 +26,7 @@ import solutions.triniti.admin.db.AdminDatabase;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String ADMIN_URL = "http://10.190.196.21:3002/";
+    private static final String ADMIN_URL = "http://10.183.182.21:3002/";
 
     private WebView webView;
     private NativeApiBridge nativeApiBridge;
@@ -45,6 +48,12 @@ public class MainActivity extends AppCompatActivity {
             fileChooserCallback = null;
         }
     );
+    private final ActivityResultLauncher<String[]> bluetoothPermissionLauncher = registerForActivityResult(
+        new ActivityResultContracts.RequestMultiplePermissions(),
+        result -> {
+            // No-op: print provider validates permission again at call time.
+        }
+    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,8 +62,22 @@ public class MainActivity extends AppCompatActivity {
 
         webView = findViewById(R.id.adminWebView);
         storageRootPath = AdminDatabase.get(getApplicationContext()).getStorageRootPath();
+        requestBluetoothPermissionIfNeeded();
         configureWebView();
         webView.loadUrl(ADMIN_URL);
+    }
+
+    private void requestBluetoothPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return;
+        }
+
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT)
+            == PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        bluetoothPermissionLauncher.launch(new String[] { android.Manifest.permission.BLUETOOTH_CONNECT });
     }
 
     private void configureWebView() {
