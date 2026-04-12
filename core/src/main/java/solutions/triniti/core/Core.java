@@ -8,6 +8,7 @@ import solutions.triniti.core.bridge.BridgeRequest;
 import solutions.triniti.core.bridge.BridgeResponse;
 import solutions.triniti.core.db.OrmLiteConnectionProvider;
 import solutions.triniti.core.handler.AnalyticsRequestHandler;
+import solutions.triniti.core.handler.BackupRestoreRequestHandler;
 import solutions.triniti.core.handler.CategoryRequestHandler;
 import solutions.triniti.core.handler.DishRequestHandler;
 import solutions.triniti.core.handler.InventoryRequestHandler;
@@ -40,6 +41,7 @@ public class Core {
             new DishRequestHandler(ormLiteConnectionProvider),
             new CategoryRequestHandler(ormLiteConnectionProvider, storageService),
             new StorageRequestHandler(storageService),
+            new BackupRestoreRequestHandler(ormLiteConnectionProvider),
             new SyncRequestHandler(),
             new InventoryRequestHandler(ormLiteConnectionProvider),
             new OrderRequestHandler(ormLiteConnectionProvider),

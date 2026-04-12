@@ -20,7 +20,7 @@ public class SyncRequestHandler implements RequestHandler {
 
     @Override
     public boolean supports(String type) {
-        return type != null && type.startsWith("sync.");
+        return "sync.getServerStatus".equals(type) || "sync.status".equals(type);
     }
 
     @Override
@@ -138,12 +138,27 @@ public class SyncRequestHandler implements RequestHandler {
         }
     }
 
+    private int getInt(JsonObject object, String key, int fallback) {
+        JsonElement element = object.get(key);
+        if (element == null || element.isJsonNull()) {
+            return fallback;
+        }
+        try {
+            return element.getAsInt();
+        } catch (Exception ignored) {
+            try {
+                return Integer.parseInt(element.getAsString());
+            } catch (Exception ignoredAgain) {
+                return fallback;
+            }
+        }
+    }
+
     private boolean getBoolean(JsonObject object, String key, boolean fallback) {
         JsonElement element = object.get(key);
         if (element == null || element.isJsonNull()) {
             return fallback;
         }
-
         try {
             return element.getAsBoolean();
         } catch (Exception ignored) {
@@ -151,14 +166,14 @@ public class SyncRequestHandler implements RequestHandler {
         }
     }
 
-    private int getInt(JsonObject object, String key, int fallback) {
-        JsonElement element = object.get(key);
+    private boolean getBooleanParam(JsonObject params, String key, boolean fallback) {
+        JsonElement element = params.get(key);
         if (element == null || element.isJsonNull()) {
             return fallback;
         }
 
         try {
-            return element.getAsInt();
+            return element.getAsBoolean();
         } catch (Exception ignored) {
             return fallback;
         }

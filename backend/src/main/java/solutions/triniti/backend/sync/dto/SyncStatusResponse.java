@@ -9,13 +9,23 @@ public class SyncStatusResponse {
     public String databasePath;
     public String latestBackupName;
     public long checkedAt;
+    public Long lastRestoreAt;
+    public String lastRestoreFormat;
+    public String lastRestoreVersion;
+    public Boolean lastRestoreSuccess;
+    public String lastRestoreMessage;
 
     public static SyncStatusResponse ok(
         boolean databaseExists,
         boolean backupReady,
         int backupCount,
         String databasePath,
-        String latestBackupName
+        String latestBackupName,
+        Long lastRestoreAt,
+        String lastRestoreFormat,
+        String lastRestoreVersion,
+        Boolean lastRestoreSuccess,
+        String lastRestoreMessage
     ) {
         SyncStatusResponse response = new SyncStatusResponse();
         response.success = true;
@@ -25,6 +35,11 @@ public class SyncStatusResponse {
         response.backupCount = backupCount;
         response.databasePath = databasePath;
         response.latestBackupName = latestBackupName;
+        response.lastRestoreAt = lastRestoreAt;
+        response.lastRestoreFormat = lastRestoreFormat;
+        response.lastRestoreVersion = lastRestoreVersion;
+        response.lastRestoreSuccess = lastRestoreSuccess;
+        response.lastRestoreMessage = lastRestoreMessage;
         response.checkedAt = System.currentTimeMillis();
         return response;
     }

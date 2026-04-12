@@ -2,9 +2,11 @@ import React, { useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import {
   Activity,
+  Download,
   Cloud,
   CloudOff,
   Database,
+  Upload,
   TrendingUp,
   ShoppingBag,
   UtensilsCrossed,
@@ -13,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { getServerStatus } from "../API/serverStatus";
+import { restoreFromBackupFile } from "../API/restore";
 
 function SidebarItem({ to, icon, label, onNavigate }) {
   const IconComponent = icon;
@@ -34,7 +37,14 @@ function SidebarItem({ to, icon, label, onNavigate }) {
   );
 }
 
-function SidebarContent({ onNavigate, status }) {
+function SidebarContent({
+  onNavigate,
+  status,
+  onRestoreClick,
+  onBackupClick,
+  restoreBusy,
+  notice,
+}) {
   const online = Boolean(status?.online);
   const backupReady = Boolean(status?.backupReady);
 
@@ -87,6 +97,31 @@ function SidebarContent({ onNavigate, status }) {
         <SidebarItem to="/inventory" icon={Package} label="Inventory" onNavigate={onNavigate} />
         <SidebarItem to="/inventory/movements" icon={Activity} label="Movements" onNavigate={onNavigate} />
       </nav>
+
+      <div className="p-4 border-t border-slate-200/70 bg-white/60 space-y-2">
+        <button
+          type="button"
+          onClick={onRestoreClick}
+          disabled={restoreBusy}
+          className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <Upload size={16} />
+          {restoreBusy ? "Restoring..." : "Restore From Backup"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onBackupClick}
+          className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors"
+        >
+          <Download size={16} />
+          Backup (Coming Soon)
+        </button>
+
+        {notice ? (
+          <div className="text-[11px] leading-4 text-slate-500 px-1">{notice}</div>
+        ) : null}
+      </div>
     </>
   );
 }
@@ -97,6 +132,14 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose = () => {}
     backupReady: false,
     backupCount: 0,
   });
+  const [restoreBusy, setRestoreBusy] = React.useState(false);
+  const [notice, setNotice] = React.useState("");
+  const restoreInputRef = React.useRef(null);
+
+  const refreshStatus = React.useCallback(async () => {
+    const next = await getServerStatus();
+    setStatus(next || { online: false, backupReady: false, backupCount: 0 });
+  }, []);
 
   useEffect(() => {
     if (isMobileOpen) {
@@ -111,29 +154,73 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose = () => {}
   }, [isMobileOpen]);
 
   useEffect(() => {
-    let active = true;
-
-    const refreshStatus = async () => {
-      const next = await getServerStatus();
-      if (!active) {
-        return;
-      }
-      setStatus(next || { online: false, backupReady: false, backupCount: 0 });
-    };
-
     refreshStatus();
     const intervalId = window.setInterval(refreshStatus, 10000);
 
     return () => {
-      active = false;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [refreshStatus]);
+
+  const onRestoreClick = () => {
+    if (restoreBusy) {
+      return;
+    }
+    if (restoreInputRef.current) {
+      restoreInputRef.current.value = "";
+      restoreInputRef.current.click();
+    }
+  };
+
+  const onBackupClick = () => {
+    setNotice("Backup will be available in a future update.");
+  };
+
+  const onRestoreFileSelected = async (event) => {
+    const file = event?.target?.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "This will wipe current data and restore from the selected backup. Continue?"
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setRestoreBusy(true);
+      setNotice("Restore in progress...");
+      const result = await restoreFromBackupFile(file, { wipeExistingData: true });
+      const detectedFormat = result?.detectedFormat || "unknown";
+      setNotice(`Restore completed (${detectedFormat}).`);
+      await refreshStatus();
+    } catch (error) {
+      setNotice(error?.message || "Restore failed.");
+    } finally {
+      setRestoreBusy(false);
+    }
+  };
 
   return (
     <>
+      <input
+        ref={restoreInputRef}
+        type="file"
+        accept=".zip,application/zip"
+        className="hidden"
+        onChange={onRestoreFileSelected}
+      />
+
       <aside className="w-64 bg-white/72 backdrop-blur-xl border-r border-slate-200/60 hidden lg:flex flex-col fixed h-full z-20 shadow-[0_10px_35px_-25px_rgba(15,23,42,0.45)]">
-        <SidebarContent status={status} />
+        <SidebarContent
+          status={status}
+          onRestoreClick={onRestoreClick}
+          onBackupClick={onBackupClick}
+          restoreBusy={restoreBusy}
+          notice={notice}
+        />
       </aside>
 
       <div
@@ -159,7 +246,14 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose = () => {}
           </button>
         </div>
 
-        <SidebarContent onNavigate={onMobileClose} status={status} />
+        <SidebarContent
+          onNavigate={onMobileClose}
+          status={status}
+          onRestoreClick={onRestoreClick}
+          onBackupClick={onBackupClick}
+          restoreBusy={restoreBusy}
+          notice={notice}
+        />
       </aside>
     </>
   );
