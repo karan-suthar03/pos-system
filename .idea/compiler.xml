@@ -7,6 +7,9 @@
       <module name="pos-system.desktop_admin" target="17" />
       <module name="pos-system.desktop_admin.main" target="17" />
       <module name="pos-system.desktop_admin.test" target="17" />
+      <module name="solutions.triniti.pos-system.admin_desktop.backend" target="21" />
+      <module name="solutions.triniti.pos-system.admin_desktop.backend.main" target="21" />
+      <module name="solutions.triniti.pos-system.admin_desktop.backend.test" target="21" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">

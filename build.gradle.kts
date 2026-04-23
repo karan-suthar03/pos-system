@@ -6,10 +6,10 @@ plugins {
 
 tasks.register<Copy>("prepareDesktopAdmin") {
 
-    dependsOn(":admin_desktop:backend:build")
+    dependsOn(":java_runtime:build")
 
-    from(project(":admin_desktop:backend").layout.buildDirectory.dir("libs"))
-    include("*.jar")
+    from(project(":java_runtime").layout.buildDirectory.dir("libs"))
+    include("java_runtime-*.jar")
 
     into("desktop/electron")
 

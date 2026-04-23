@@ -14,8 +14,7 @@
             <option value="$PROJECT_DIR$/android/counter_android" />
             <option value="$PROJECT_DIR$/backend" />
             <option value="$PROJECT_DIR$/core" />
-            <option value="$PROJECT_DIR$/desktop/backend" />
-            <option value="$PROJECT_DIR$/desktop/backend/backend" />
+            <option value="$PROJECT_DIR$/desktop/java-runtime" />
           </set>
         </option>
       </GradleProjectSettings>
